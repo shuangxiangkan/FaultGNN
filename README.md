@@ -92,17 +92,6 @@ python RQ3.py
 - `bc`: BC (Hypercube) Network
 - `augmented_k_ary_n_cube`: Augmented K-ary N-cube
 
-## ⚠️ Important Notes
-
-### Core Model Protection
-
-The `FaultGAT` model implementation is currently provided as compiled bytecode (`FaultGAT.pyc`) for intellectual property protection. **The full source code will be open-sourced after paper acceptance.**
-
-- **Current Status**: Available as `FaultGAT.pyc` (compiled bytecode)
-- **Python Version**: Requires exactly **Python 3.10.x** (bytecode is version-specific)
-- **Future Release**: Complete source code (`FaultGAT.py`) will be available after paper publication
-- **No Fallback**: Other Python versions are not supported with current bytecode
-
 ### Version Compatibility
 
 If you encounter import errors:
@@ -116,6 +105,5 @@ Supported versions: 3.10
 **Solutions:**
 1. Use Python 3.10: `pyenv install 3.10.12 && pyenv local 3.10.12`
 2. Use conda: `conda create -n faultgat python=3.10`
-3. Contact authors for source code access
 
 
