@@ -49,11 +49,8 @@ python run_comparison.py --help
 #### Usage Examples
 
 ```bash
-# Custom graph size and fault configuration (BC graph)
-python run_comparison.py --n 16 --fault_count 8
-
-# Adjust model parameters
-python run_comparison.py --gat_hidden_dim 128 --epochs 200
+# Custom graph size and fault configuration (10 dimensional hypercube with 8 fault nodes)
+python run_comparison.py --n 10 --fault_count 8
 ```
 
 
