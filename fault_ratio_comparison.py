@@ -3,7 +3,7 @@
 Fault Ratio Comparison Experiment
 =================================
 
-This script is used to compare GAT and RNNIFDCOM model performance under different fault node ratios.
+This script is used to compare GNN and RNNIFDCOM model performance under different fault node ratios.
 """
 
 import torch
@@ -238,13 +238,13 @@ class FaultRatioComparison:
                     # Run single experiment
                     result = run_single_experiment(config, run_args, output_dir)
                     
-                    if 'error' not in result and result['gat_results'] is not None:
+                    if 'error' not in result and result['gnn_results'] is not None:
                         run_results.append(result)
                         successful_runs += 1
                         
-                        gat_f1 = result['gat_results']['f1_score']
+                        gnn_f1 = result['gnn_results']['f1_score']
                         rnn_f1 = result['rnn_results']['f1_score']
-                        logger.info(f"      GAT F1: {gat_f1:.4f}, RNNIFDCOM F1: {rnn_f1:.4f}")
+                        logger.info(f"      GNN F1: {gnn_f1:.4f}, RNNIFDCOM F1: {rnn_f1:.4f}")
                     else:
                         logger.warning(f"      Run {run_idx+1} failed")
                         
@@ -259,7 +259,7 @@ class FaultRatioComparison:
                 all_results['results'].append(avg_result)
                 
                 logger.info(f"  Completed {successful_runs}/{self.num_runs} runs (time: {exp_time:.1f}s)")
-                logger.info(f"  Average GAT F1: {avg_result['gat_results']['f1_score']:.4f} ± {avg_result['gat_results']['f1_std']:.4f}")
+                logger.info(f"  Average GNN F1: {avg_result['gnn_results']['f1_score']:.4f} ± {avg_result['gnn_results']['f1_std']:.4f}")
                 logger.info(f"  Average RNNIFDCOM F1: {avg_result['rnn_results']['f1_score']:.4f} ± {avg_result['rnn_results']['f1_std']:.4f}")
             else:
                 logger.error(f"  All runs failed")
@@ -270,7 +270,7 @@ class FaultRatioComparison:
                     'fault_ratio': fault_ratio,
                     'experiment_index': i,
                     'error': f"All {self.num_runs} runs failed",
-                    'gat_results': None,
+                    'gnn_results': None,
                     'rnn_results': None,
                     'successful_runs': 0,
                     'total_runs': self.num_runs
@@ -299,20 +299,20 @@ class FaultRatioComparison:
             return None
         
         # Collect all results
-        gat_f1_scores = [r['gat_results']['f1_score'] for r in run_results]
-        gat_accuracies = [r['gat_results']['accuracy'] for r in run_results]
-        gat_train_times = [r['gat_results']['train_time'] for r in run_results]
-        gat_precisions = [r['gat_results']['precision'] for r in run_results]
-        gat_recalls = [r['gat_results']['recall'] for r in run_results]
-        gat_fnrs = [r['gat_results']['false_negative_rate'] for r in run_results]
-        gat_fprs = [r['gat_results']['false_positive_rate'] for r in run_results]
+        gnn_f1_scores = [r['gnn_results']['f1_score'] for r in run_results]
+        gnn_accuracies = [r['gnn_results']['accuracy'] for r in run_results]
+        gnn_train_times = [r['gnn_results']['train_time'] for r in run_results]
+        gnn_precisions = [r['gnn_results']['precision'] for r in run_results]
+        gnn_recalls = [r['gnn_results']['recall'] for r in run_results]
+        gnn_fnrs = [r['gnn_results']['false_negnnive_rate'] for r in run_results]
+        gnn_fprs = [r['gnn_results']['false_positive_rate'] for r in run_results]
         
         rnn_f1_scores = [r['rnn_results']['f1_score'] for r in run_results]
         rnn_accuracies = [r['rnn_results']['accuracy'] for r in run_results]
         rnn_train_times = [r['rnn_results']['train_time'] for r in run_results]
         rnn_precisions = [r['rnn_results']['precision'] for r in run_results]
         rnn_recalls = [r['rnn_results']['recall'] for r in run_results]
-        rnn_fnrs = [r['rnn_results']['false_negative_rate'] for r in run_results]
+        rnn_fnrs = [r['rnn_results']['false_negnnive_rate'] for r in run_results]
         rnn_fprs = [r['rnn_results']['false_positive_rate'] for r in run_results]
         
         # Calculate average and standard deviation
@@ -324,24 +324,24 @@ class FaultRatioComparison:
             'experiment_index': experiment_index,
             'successful_runs': len(run_results),
             'total_runs': self.num_runs,
-            'gat_results': {
-                'f1_score': np.mean(gat_f1_scores),
-                'f1_std': np.std(gat_f1_scores),
-                'accuracy': np.mean(gat_accuracies),
-                'accuracy_std': np.std(gat_accuracies),
-                'precision': np.mean(gat_precisions),
-                'precision_std': np.std(gat_precisions),
-                'recall': np.mean(gat_recalls),
-                'recall_std': np.std(gat_recalls),
-                'false_negative_rate': np.mean(gat_fnrs),
-                'false_negative_rate_std': np.std(gat_fnrs),
-                'false_positive_rate': np.mean(gat_fprs),
-                'false_positive_rate_std': np.std(gat_fprs),
-                'train_time': np.mean(gat_train_times),
-                'train_time_std': np.std(gat_train_times),
-                'all_f1_scores': gat_f1_scores,
-                'all_accuracies': gat_accuracies,
-                'all_train_times': gat_train_times
+            'gnn_results': {
+                'f1_score': np.mean(gnn_f1_scores),
+                'f1_std': np.std(gnn_f1_scores),
+                'accuracy': np.mean(gnn_accuracies),
+                'accuracy_std': np.std(gnn_accuracies),
+                'precision': np.mean(gnn_precisions),
+                'precision_std': np.std(gnn_precisions),
+                'recall': np.mean(gnn_recalls),
+                'recall_std': np.std(gnn_recalls),
+                'false_negnnive_rate': np.mean(gnn_fnrs),
+                'false_negnnive_rate_std': np.std(gnn_fnrs),
+                'false_positive_rate': np.mean(gnn_fprs),
+                'false_positive_rate_std': np.std(gnn_fprs),
+                'train_time': np.mean(gnn_train_times),
+                'train_time_std': np.std(gnn_train_times),
+                'all_f1_scores': gnn_f1_scores,
+                'all_accuracies': gnn_accuracies,
+                'all_train_times': gnn_train_times
             },
             'rnn_results': {
                 'f1_score': np.mean(rnn_f1_scores),
@@ -352,8 +352,8 @@ class FaultRatioComparison:
                 'precision_std': np.std(rnn_precisions),
                 'recall': np.mean(rnn_recalls),
                 'recall_std': np.std(rnn_recalls),
-                'false_negative_rate': np.mean(rnn_fnrs),
-                'false_negative_rate_std': np.std(rnn_fnrs),
+                'false_negnnive_rate': np.mean(rnn_fnrs),
+                'false_negnnive_rate_std': np.std(rnn_fnrs),
                 'false_positive_rate': np.mean(rnn_fprs),
                 'false_positive_rate_std': np.std(rnn_fprs),
                 'train_time': np.mean(rnn_train_times),
@@ -372,42 +372,42 @@ class FaultRatioComparison:
             'total_experiments': len(results),
             'successful_experiments': 0,
             'failed_experiments': 0,
-            'gat_scores': [],
+            'gnn_scores': [],
             'rnn_scores': [],
             'fault_ratios': [],
             'fault_counts': [],
-            'best_gat_f1': 0,
+            'best_gnn_f1': 0,
             'best_rnn_f1': 0,
-            'worst_gat_f1': 1,
+            'worst_gnn_f1': 1,
             'worst_rnn_f1': 1
         }
         
         for result in results:
-            if 'error' in result or result['gat_results'] is None:
+            if 'error' in result or result['gnn_results'] is None:
                 summary['failed_experiments'] += 1
                 continue
             
             summary['successful_experiments'] += 1
             
-            gat_f1 = result['gat_results']['f1_score']
+            gnn_f1 = result['gnn_results']['f1_score']
             rnn_f1 = result['rnn_results']['f1_score']
             fault_ratio = result['fault_ratio']
             fault_count = result['fault_count']
             
-            summary['gat_scores'].append(gat_f1)
+            summary['gnn_scores'].append(gnn_f1)
             summary['rnn_scores'].append(rnn_f1)
             summary['fault_ratios'].append(fault_ratio)
             summary['fault_counts'].append(fault_count)
             
-            summary['best_gat_f1'] = max(summary['best_gat_f1'], gat_f1)
+            summary['best_gnn_f1'] = max(summary['best_gnn_f1'], gnn_f1)
             summary['best_rnn_f1'] = max(summary['best_rnn_f1'], rnn_f1)
-            summary['worst_gat_f1'] = min(summary['worst_gat_f1'], gat_f1)
+            summary['worst_gnn_f1'] = min(summary['worst_gnn_f1'], gnn_f1)
             summary['worst_rnn_f1'] = min(summary['worst_rnn_f1'], rnn_f1)
         
-        if summary['gat_scores']:
-            summary['avg_gat_f1'] = np.mean(summary['gat_scores'])
+        if summary['gnn_scores']:
+            summary['avg_gnn_f1'] = np.mean(summary['gnn_scores'])
             summary['avg_rnn_f1'] = np.mean(summary['rnn_scores'])
-            summary['std_gat_f1'] = np.std(summary['gat_scores'])
+            summary['std_gnn_f1'] = np.std(summary['gnn_scores'])
             summary['std_rnn_f1'] = np.std(summary['rnn_scores'])
         
         return summary
@@ -438,10 +438,10 @@ class FaultRatioComparison:
             
             if 'error' in result:
                 json_result['error'] = result['error']
-                json_result['gat_results'] = None
+                json_result['gnn_results'] = None
                 json_result['rnn_results'] = None
             else:
-                json_result['gat_results'] = result.get('gat_results', {})
+                json_result['gnn_results'] = result.get('gnn_results', {})
                 json_result['rnn_results'] = result.get('rnn_results', {})
             
             json_data['results'].append(json_result)
@@ -467,7 +467,7 @@ class FaultRatioComparison:
         data = []
         
         for result in all_results['results']:
-            if 'error' in result or result['gat_results'] is None:
+            if 'error' in result or result['gnn_results'] is None:
                 continue
             
             data.append({
@@ -475,20 +475,20 @@ class FaultRatioComparison:
                 'fault_count': result['fault_count'],
                 'successful_runs': result.get('successful_runs', 1),
                 'total_runs': result.get('total_runs', 1),
-                'gat_accuracy': result['gat_results']['accuracy'],
-                'gat_accuracy_std': result['gat_results'].get('accuracy_std', 0),
-                'gat_f1_score': result['gat_results']['f1_score'],
-                'gat_f1_std': result['gat_results'].get('f1_std', 0),
-                'gat_precision': result['gat_results'].get('precision', 0),
-                'gat_precision_std': result['gat_results'].get('precision_std', 0),
-                'gat_recall': result['gat_results'].get('recall', 0),
-                'gat_recall_std': result['gat_results'].get('recall_std', 0),
-                'gat_fnr': result['gat_results'].get('false_negative_rate', 0),
-                'gat_fnr_std': result['gat_results'].get('false_negative_rate_std', 0),
-                'gat_fpr': result['gat_results'].get('false_positive_rate', 0),
-                'gat_fpr_std': result['gat_results'].get('false_positive_rate_std', 0),
-                'gat_train_time': result['gat_results']['train_time'],
-                'gat_train_time_std': result['gat_results'].get('train_time_std', 0),
+                'gnn_accuracy': result['gnn_results']['accuracy'],
+                'gnn_accuracy_std': result['gnn_results'].get('accuracy_std', 0),
+                'gnn_f1_score': result['gnn_results']['f1_score'],
+                'gnn_f1_std': result['gnn_results'].get('f1_std', 0),
+                'gnn_precision': result['gnn_results'].get('precision', 0),
+                'gnn_precision_std': result['gnn_results'].get('precision_std', 0),
+                'gnn_recall': result['gnn_results'].get('recall', 0),
+                'gnn_recall_std': result['gnn_results'].get('recall_std', 0),
+                'gnn_fnr': result['gnn_results'].get('false_negnnive_rate', 0),
+                'gnn_fnr_std': result['gnn_results'].get('false_negnnive_rate_std', 0),
+                'gnn_fpr': result['gnn_results'].get('false_positive_rate', 0),
+                'gnn_fpr_std': result['gnn_results'].get('false_positive_rate_std', 0),
+                'gnn_train_time': result['gnn_results']['train_time'],
+                'gnn_train_time_std': result['gnn_results'].get('train_time_std', 0),
                 'rnn_accuracy': result['rnn_results']['accuracy'],
                 'rnn_accuracy_std': result['rnn_results'].get('accuracy_std', 0),
                 'rnn_f1_score': result['rnn_results']['f1_score'],
@@ -497,13 +497,13 @@ class FaultRatioComparison:
                 'rnn_precision_std': result['rnn_results'].get('precision_std', 0),
                 'rnn_recall': result['rnn_results'].get('recall', 0),
                 'rnn_recall_std': result['rnn_results'].get('recall_std', 0),
-                'rnn_fnr': result['rnn_results'].get('false_negative_rate', 0),
-                'rnn_fnr_std': result['rnn_results'].get('false_negative_rate_std', 0),
+                'rnn_fnr': result['rnn_results'].get('false_negnnive_rate', 0),
+                'rnn_fnr_std': result['rnn_results'].get('false_negnnive_rate_std', 0),
                 'rnn_fpr': result['rnn_results'].get('false_positive_rate', 0),
                 'rnn_fpr_std': result['rnn_results'].get('false_positive_rate_std', 0),
                 'rnn_train_time': result['rnn_results']['train_time'],
                 'rnn_train_time_std': result['rnn_results'].get('train_time_std', 0),
-                'gat_better': result['gat_results']['f1_score'] > result['rnn_results']['f1_score']
+                'gnn_better': result['gnn_results']['f1_score'] > result['rnn_results']['f1_score']
             })
         
         if data:
@@ -540,75 +540,75 @@ class FaultRatioComparison:
             f.write(f"  Failed experiments: {summary['failed_experiments']}\n")
             
             if summary['successful_experiments'] > 0:
-                f.write(f"  GAT average F1: {summary['avg_gat_f1']:.4f} ± {summary['std_gat_f1']:.4f}\n")
+                f.write(f"  GNN average F1: {summary['avg_gnn_f1']:.4f} ± {summary['std_gnn_f1']:.4f}\n")
                 f.write(f"  RNN average F1: {summary['avg_rnn_f1']:.4f} ± {summary['std_rnn_f1']:.4f}\n")
-                f.write(f"  GAT best F1: {summary['best_gat_f1']:.4f}\n")
+                f.write(f"  GNN best F1: {summary['best_gnn_f1']:.4f}\n")
                 f.write(f"  RNN best F1: {summary['best_rnn_f1']:.4f}\n")
                 
-                gat_wins = sum(1 for i in range(len(summary['gat_scores'])) 
-                              if summary['gat_scores'][i] > summary['rnn_scores'][i])
-                f.write(f"  GAT wins: {gat_wins}/{summary['successful_experiments']}\n")
+                gnn_wins = sum(1 for i in range(len(summary['gnn_scores'])) 
+                              if summary['gnn_scores'][i] > summary['rnn_scores'][i])
+                f.write(f"  GNN wins: {gnn_wins}/{summary['successful_experiments']}\n")
             
             f.write(f"\nTotal experiment time: {metadata['total_experiment_time']:.1f} seconds\n\n")
             
             # Detailed results
             f.write("Detailed results:\n")
             f.write("-" * 120 + "\n")
-            f.write(f"{'Fault ratio':>8} {'Fault count':>6} {'Success/Total':>10} {'GAT-F1':>12} {'RNN-F1':>12} {'GAT-Acc':>12} {'RNN-Acc':>12} {'Better model':>8}\n")
+            f.write(f"{'Fault ratio':>8} {'Fault count':>6} {'Success/Total':>10} {'GNN-F1':>12} {'RNN-F1':>12} {'GNN-Acc':>12} {'RNN-Acc':>12} {'Better model':>8}\n")
             f.write("-" * 120 + "\n")
             
             for result in all_results['results']:
-                if 'error' in result or result['gat_results'] is None:
+                if 'error' in result or result['gnn_results'] is None:
                     ratio_percent = result.get('fault_ratio', 0) * 100
                     runs_info = f"{result.get('successful_runs', 0)}/{result.get('total_runs', 1)}"
                     f.write(f"{ratio_percent:>7.1f}% {result['fault_count']:>6} {runs_info:>10} {'ERROR':>12} {'ERROR':>12} {'ERROR':>12} {'ERROR':>12} {'N/A':>8}\n")
                 else:
                     ratio_percent = result['fault_ratio'] * 100
-                    gat_f1 = result['gat_results']['f1_score']
-                    gat_f1_std = result['gat_results'].get('f1_std', 0)
+                    gnn_f1 = result['gnn_results']['f1_score']
+                    gnn_f1_std = result['gnn_results'].get('f1_std', 0)
                     rnn_f1 = result['rnn_results']['f1_score']
                     rnn_f1_std = result['rnn_results'].get('f1_std', 0)
-                    gat_acc = result['gat_results']['accuracy']
-                    gat_acc_std = result['gat_results'].get('accuracy_std', 0)
+                    gnn_acc = result['gnn_results']['accuracy']
+                    gnn_acc_std = result['gnn_results'].get('accuracy_std', 0)
                     rnn_acc = result['rnn_results']['accuracy']
                     rnn_acc_std = result['rnn_results'].get('accuracy_std', 0)
-                    better = 'GAT' if gat_f1 > rnn_f1 else 'RNN' if rnn_f1 > gat_f1 else 'TIE'
+                    better = 'GNN' if gnn_f1 > rnn_f1 else 'RNN' if rnn_f1 > gnn_f1 else 'TIE'
                     
                     runs_info = f"{result.get('successful_runs', 1)}/{result.get('total_runs', 1)}"
-                    gat_f1_str = f"{gat_f1:.3f}±{gat_f1_std:.3f}" if gat_f1_std > 0 else f"{gat_f1:.4f}"
+                    gnn_f1_str = f"{gnn_f1:.3f}±{gnn_f1_std:.3f}" if gnn_f1_std > 0 else f"{gnn_f1:.4f}"
                     rnn_f1_str = f"{rnn_f1:.3f}±{rnn_f1_std:.3f}" if rnn_f1_std > 0 else f"{rnn_f1:.4f}"
-                    gat_acc_str = f"{gat_acc:.3f}±{gat_acc_std:.3f}" if gat_acc_std > 0 else f"{gat_acc:.4f}"
+                    gnn_acc_str = f"{gnn_acc:.3f}±{gnn_acc_std:.3f}" if gnn_acc_std > 0 else f"{gnn_acc:.4f}"
                     rnn_acc_str = f"{rnn_acc:.3f}±{rnn_acc_std:.3f}" if rnn_acc_std > 0 else f"{rnn_acc:.4f}"
                     
-                    f.write(f"{ratio_percent:>7.1f}% {result['fault_count']:>6} {runs_info:>10} {gat_f1_str:>12} {rnn_f1_str:>12} "
-                           f"{gat_acc_str:>12} {rnn_acc_str:>12} {better:>8}\n")
+                    f.write(f"{ratio_percent:>7.1f}% {result['fault_count']:>6} {runs_info:>10} {gnn_f1_str:>12} {rnn_f1_str:>12} "
+                           f"{gnn_acc_str:>12} {rnn_acc_str:>12} {better:>8}\n")
     
     def _save_theoretical_diagnosability_csv_summary(self, all_results: Dict, csv_file: str):
         """Save CSV format theoretical diagnosability summary results"""
         data = []
         
         for result in all_results['results']:
-            if 'error' in result or result['gat_results'] is None:
+            if 'error' in result or result['gnn_results'] is None:
                 continue
             
             data.append({
                 'fault_count': result['fault_count'],
                 'successful_runs': result.get('successful_runs', 1),
                 'total_runs': result.get('total_runs', 1),
-                'gat_accuracy': result['gat_results']['accuracy'],
-                'gat_accuracy_std': result['gat_results'].get('accuracy_std', 0),
-                'gat_f1_score': result['gat_results']['f1_score'],
-                'gat_f1_std': result['gat_results'].get('f1_std', 0),
-                'gat_precision': result['gat_results'].get('precision', 0),
-                'gat_precision_std': result['gat_results'].get('precision_std', 0),
-                'gat_recall': result['gat_results'].get('recall', 0),
-                'gat_recall_std': result['gat_results'].get('recall_std', 0),
-                'gat_fnr': result['gat_results'].get('false_negative_rate', 0),
-                'gat_fnr_std': result['gat_results'].get('false_negative_rate_std', 0),
-                'gat_fpr': result['gat_results'].get('false_positive_rate', 0),
-                'gat_fpr_std': result['gat_results'].get('false_positive_rate_std', 0),
-                'gat_train_time': result['gat_results']['train_time'],
-                'gat_train_time_std': result['gat_results'].get('train_time_std', 0),
+                'gnn_accuracy': result['gnn_results']['accuracy'],
+                'gnn_accuracy_std': result['gnn_results'].get('accuracy_std', 0),
+                'gnn_f1_score': result['gnn_results']['f1_score'],
+                'gnn_f1_std': result['gnn_results'].get('f1_std', 0),
+                'gnn_precision': result['gnn_results'].get('precision', 0),
+                'gnn_precision_std': result['gnn_results'].get('precision_std', 0),
+                'gnn_recall': result['gnn_results'].get('recall', 0),
+                'gnn_recall_std': result['gnn_results'].get('recall_std', 0),
+                'gnn_fnr': result['gnn_results'].get('false_negnnive_rate', 0),
+                'gnn_fnr_std': result['gnn_results'].get('false_negnnive_rate_std', 0),
+                'gnn_fpr': result['gnn_results'].get('false_positive_rate', 0),
+                'gnn_fpr_std': result['gnn_results'].get('false_positive_rate_std', 0),
+                'gnn_train_time': result['gnn_results']['train_time'],
+                'gnn_train_time_std': result['gnn_results'].get('train_time_std', 0),
                 'rnn_accuracy': result['rnn_results']['accuracy'],
                 'rnn_accuracy_std': result['rnn_results'].get('accuracy_std', 0),
                 'rnn_f1_score': result['rnn_results']['f1_score'],
@@ -617,13 +617,13 @@ class FaultRatioComparison:
                 'rnn_precision_std': result['rnn_results'].get('precision_std', 0),
                 'rnn_recall': result['rnn_results'].get('recall', 0),
                 'rnn_recall_std': result['rnn_results'].get('recall_std', 0),
-                'rnn_fnr': result['rnn_results'].get('false_negative_rate', 0),
-                'rnn_fnr_std': result['rnn_results'].get('false_negative_rate_std', 0),
+                'rnn_fnr': result['rnn_results'].get('false_negnnive_rate', 0),
+                'rnn_fnr_std': result['rnn_results'].get('false_negnnive_rate_std', 0),
                 'rnn_fpr': result['rnn_results'].get('false_positive_rate', 0),
                 'rnn_fpr_std': result['rnn_results'].get('false_positive_rate_std', 0),
                 'rnn_train_time': result['rnn_results']['train_time'],
                 'rnn_train_time_std': result['rnn_results'].get('train_time_std', 0),
-                'gat_better': result['gat_results']['f1_score'] > result['rnn_results']['f1_score']
+                'gnn_better': result['gnn_results']['f1_score'] > result['rnn_results']['f1_score']
             })
         
         if data:
@@ -658,46 +658,46 @@ class FaultRatioComparison:
             f.write(f"  Failed experiments: {summary['failed_experiments']}\n")
             
             if summary['successful_experiments'] > 0:
-                f.write(f"  GAT average F1: {summary['avg_gat_f1']:.4f} ± {summary['std_gat_f1']:.4f}\n")
+                f.write(f"  GNN average F1: {summary['avg_gnn_f1']:.4f} ± {summary['std_gnn_f1']:.4f}\n")
                 f.write(f"  RNN average F1: {summary['avg_rnn_f1']:.4f} ± {summary['std_rnn_f1']:.4f}\n")
-                f.write(f"  GAT best F1: {summary['best_gat_f1']:.4f}\n")
+                f.write(f"  GNN best F1: {summary['best_gnn_f1']:.4f}\n")
                 f.write(f"  RNN best F1: {summary['best_rnn_f1']:.4f}\n")
                 
-                gat_wins = sum(1 for i in range(len(summary['gat_scores'])) 
-                              if summary['gat_scores'][i] > summary['rnn_scores'][i])
-                f.write(f"  GAT wins: {gat_wins}/{summary['successful_experiments']}\n")
+                gnn_wins = sum(1 for i in range(len(summary['gnn_scores'])) 
+                              if summary['gnn_scores'][i] > summary['rnn_scores'][i])
+                f.write(f"  GNN wins: {gnn_wins}/{summary['successful_experiments']}\n")
             
             f.write(f"\nTotal experiment time: {metadata['total_experiment_time']:.1f} seconds\n\n")
             
             # Detailed results
             f.write("Detailed results:\n")
             f.write("-" * 100 + "\n")
-            f.write(f"{'Fault count':>6} {'Success/Total':>10} {'GAT-F1':>12} {'RNN-F1':>12} {'GAT-Acc':>12} {'RNN-Acc':>12} {'Better model':>8}\n")
+            f.write(f"{'Fault count':>6} {'Success/Total':>10} {'GNN-F1':>12} {'RNN-F1':>12} {'GNN-Acc':>12} {'RNN-Acc':>12} {'Better model':>8}\n")
             f.write("-" * 100 + "\n")
             
             for result in all_results['results']:
-                if 'error' in result or result['gat_results'] is None:
+                if 'error' in result or result['gnn_results'] is None:
                     runs_info = f"{result.get('successful_runs', 0)}/{result.get('total_runs', 1)}"
                     f.write(f"{result['fault_count']:>6} {runs_info:>10} {'ERROR':>12} {'ERROR':>12} {'ERROR':>12} {'ERROR':>12} {'N/A':>8}\n")
                 else:
-                    gat_f1 = result['gat_results']['f1_score']
-                    gat_f1_std = result['gat_results'].get('f1_std', 0)
+                    gnn_f1 = result['gnn_results']['f1_score']
+                    gnn_f1_std = result['gnn_results'].get('f1_std', 0)
                     rnn_f1 = result['rnn_results']['f1_score']
                     rnn_f1_std = result['rnn_results'].get('f1_std', 0)
-                    gat_acc = result['gat_results']['accuracy']
-                    gat_acc_std = result['gat_results'].get('accuracy_std', 0)
+                    gnn_acc = result['gnn_results']['accuracy']
+                    gnn_acc_std = result['gnn_results'].get('accuracy_std', 0)
                     rnn_acc = result['rnn_results']['accuracy']
                     rnn_acc_std = result['rnn_results'].get('accuracy_std', 0)
-                    better = 'GAT' if gat_f1 > rnn_f1 else 'RNN' if rnn_f1 > gat_f1 else 'TIE'
+                    better = 'GNN' if gnn_f1 > rnn_f1 else 'RNN' if rnn_f1 > gnn_f1 else 'TIE'
                     
                     runs_info = f"{result.get('successful_runs', 1)}/{result.get('total_runs', 1)}"
-                    gat_f1_str = f"{gat_f1:.3f}±{gat_f1_std:.3f}" if gat_f1_std > 0 else f"{gat_f1:.4f}"
+                    gnn_f1_str = f"{gnn_f1:.3f}±{gnn_f1_std:.3f}" if gnn_f1_std > 0 else f"{gnn_f1:.4f}"
                     rnn_f1_str = f"{rnn_f1:.3f}±{rnn_f1_std:.3f}" if rnn_f1_std > 0 else f"{rnn_f1:.4f}"
-                    gat_acc_str = f"{gat_acc:.3f}±{gat_acc_std:.3f}" if gat_acc_std > 0 else f"{gat_acc:.4f}"
+                    gnn_acc_str = f"{gnn_acc:.3f}±{gnn_acc_std:.3f}" if gnn_acc_std > 0 else f"{gnn_acc:.4f}"
                     rnn_acc_str = f"{rnn_acc:.3f}±{rnn_acc_std:.3f}" if rnn_acc_std > 0 else f"{rnn_acc:.4f}"
                     
-                    f.write(f"{result['fault_count']:>6} {runs_info:>10} {gat_f1_str:>12} {rnn_f1_str:>12} "
-                           f"{gat_acc_str:>12} {rnn_acc_str:>12} {better:>8}\n")
+                    f.write(f"{result['fault_count']:>6} {runs_info:>10} {gnn_f1_str:>12} {rnn_f1_str:>12} "
+                           f"{gnn_acc_str:>12} {rnn_acc_str:>12} {better:>8}\n")
     
     def _generate_theoretical_diagnosability_visualizations(self, all_results: Dict, output_dir: str):
         """Generate theoretical diagnosability visualization charts"""
@@ -705,35 +705,35 @@ class FaultRatioComparison:
         
         # Extract successful experiment data
         fault_counts = []
-        gat_f1_scores = []
+        gnn_f1_scores = []
         rnn_f1_scores = []
-        gat_f1_stds = []
+        gnn_f1_stds = []
         rnn_f1_stds = []
-        gat_accuracies = []
+        gnn_accuracies = []
         rnn_accuracies = []
-        gat_accuracy_stds = []
+        gnn_accuracy_stds = []
         rnn_accuracy_stds = []
-        gat_train_times = []
+        gnn_train_times = []
         rnn_train_times = []
-        gat_train_time_stds = []
+        gnn_train_time_stds = []
         rnn_train_time_stds = []
         
         for result in all_results['results']:
-            if 'error' in result or result['gat_results'] is None:
+            if 'error' in result or result['gnn_results'] is None:
                 continue
             
             fault_counts.append(result['fault_count'])
-            gat_f1_scores.append(result['gat_results']['f1_score'])
+            gnn_f1_scores.append(result['gnn_results']['f1_score'])
             rnn_f1_scores.append(result['rnn_results']['f1_score'])
-            gat_f1_stds.append(result['gat_results'].get('f1_std', 0))
+            gnn_f1_stds.append(result['gnn_results'].get('f1_std', 0))
             rnn_f1_stds.append(result['rnn_results'].get('f1_std', 0))
-            gat_accuracies.append(result['gat_results']['accuracy'])
+            gnn_accuracies.append(result['gnn_results']['accuracy'])
             rnn_accuracies.append(result['rnn_results']['accuracy'])
-            gat_accuracy_stds.append(result['gat_results'].get('accuracy_std', 0))
+            gnn_accuracy_stds.append(result['gnn_results'].get('accuracy_std', 0))
             rnn_accuracy_stds.append(result['rnn_results'].get('accuracy_std', 0))
-            gat_train_times.append(result['gat_results']['train_time'])
+            gnn_train_times.append(result['gnn_results']['train_time'])
             rnn_train_times.append(result['rnn_results']['train_time'])
-            gat_train_time_stds.append(result['gat_results'].get('train_time_std', 0))
+            gnn_train_time_stds.append(result['gnn_results'].get('train_time_std', 0))
             rnn_train_time_stds.append(result['rnn_results'].get('train_time_std', 0))
         
         if not fault_counts:
@@ -746,58 +746,58 @@ class FaultRatioComparison:
         
         # 1. F1 Score theoretical diagnosability trend chart
         self._create_single_chart(
-            fault_counts, gat_f1_scores, rnn_f1_scores, gat_f1_stds, rnn_f1_stds,
+            fault_counts, gnn_f1_scores, rnn_f1_scores, gnn_f1_stds, rnn_f1_stds,
             'F1 Score', 'Number of Fault Nodes', 'F1 Score',
-            f'{self.graph_type.upper()} (n={self.n}) Theoretical Diagnosability F1 Trend: GAT vs RNNIFDCOM',
+            f'{self.graph_type.upper()} (n={self.n}) Theoretical Diagnosability F1 Trend: GNN vs RNNIFDCOM',
             output_dir, 'theoretical_diagnosability_f1_trend'
         )
         
         # 2. Accuracy theoretical diagnosability trend chart
         self._create_single_chart(
-            fault_counts, gat_accuracies, rnn_accuracies, gat_accuracy_stds, rnn_accuracy_stds,
+            fault_counts, gnn_accuracies, rnn_accuracies, gnn_accuracy_stds, rnn_accuracy_stds,
             'Accuracy', 'Number of Fault Nodes', 'Accuracy',
-            f'{self.graph_type.upper()} (n={self.n}) Theoretical Diagnosability Accuracy Trend: GAT vs RNNIFDCOM',
+            f'{self.graph_type.upper()} (n={self.n}) Theoretical Diagnosability Accuracy Trend: GNN vs RNNIFDCOM',
             output_dir, 'theoretical_diagnosability_accuracy_trend'
         )
         
         # 3. Training time theoretical diagnosability trend chart
         self._create_single_chart(
-            fault_counts, gat_train_times, rnn_train_times, gat_train_time_stds, rnn_train_time_stds,
+            fault_counts, gnn_train_times, rnn_train_times, gnn_train_time_stds, rnn_train_time_stds,
             'Training Time', 'Number of Fault Nodes', 'Training Time (seconds)',
-            f'{self.graph_type.upper()} (n={self.n}) Theoretical Diagnosability Training Time Trend: GAT vs RNN',
+            f'{self.graph_type.upper()} (n={self.n}) Theoretical Diagnosability Training Time Trend: GNN vs RNN',
             output_dir, 'theoretical_diagnosability_time_trend',
             ylim_max=None  # Training time does not set upper limit
         )
         
-        # 4. GAT vs RNN performance difference chart
-        f1_diff = np.array(gat_f1_scores) - np.array(rnn_f1_scores)
+        # 4. GNN vs RNN performance difference chart
+        f1_diff = np.array(gnn_f1_scores) - np.array(rnn_f1_scores)
         self._create_difference_chart(
             fault_counts, f1_diff,
-            'Number of Fault Nodes', 'F1 Difference (GAT - RNN)',
-            f'{self.graph_type.upper()} (n={self.n}) GAT vs RNN Theoretical Diagnosability Performance Difference',
+            'Number of Fault Nodes', 'F1 Difference (GNN - RNN)',
+            f'{self.graph_type.upper()} (n={self.n}) GNN vs RNN Theoretical Diagnosability Performance Difference',
             output_dir, 'theoretical_diagnosability_performance_difference'
         )
         
         logger.info(f"Theoretical diagnosability visualization charts saved to: {output_dir}")
     
-    def _create_single_chart(self, x_data, gat_data, rnn_data, gat_stds, rnn_stds, metric_name, 
+    def _create_single_chart(self, x_data, gnn_data, rnn_data, gnn_stds, rnn_stds, metric_name, 
                             xlabel, ylabel, title, output_dir, filename, ylim_max=1.05):
         """Create single comparison chart"""
         plt.figure(figsize=(12, 8))
         
         # Plot curves and error bars
-        plt.errorbar(x_data, gat_data, yerr=gat_stds, fmt='o-', label='GAT', 
+        plt.errorbar(x_data, gnn_data, yerr=gnn_stds, fmt='o-', label='GNN', 
                     linewidth=3, markersize=8, color='#2E86AB', capsize=5, capthick=2)
         plt.errorbar(x_data, rnn_data, yerr=rnn_stds, fmt='s-', label='RNN', 
                     linewidth=3, markersize=8, color='#A23B72', capsize=5, capthick=2)
         
         # Add value labels (display average ± standard deviation)
-        for i, (x, gat_val, rnn_val, gat_std, rnn_std) in enumerate(zip(x_data, gat_data, rnn_data, gat_stds, rnn_stds)):
-            if gat_std > 0:
-                plt.annotate(f'{gat_val:.3f}±{gat_std:.3f}', (x, gat_val), textcoords="offset points", 
+        for i, (x, gnn_val, rnn_val, gnn_std, rnn_std) in enumerate(zip(x_data, gnn_data, rnn_data, gnn_stds, rnn_stds)):
+            if gnn_std > 0:
+                plt.annotate(f'{gnn_val:.3f}±{gnn_std:.3f}', (x, gnn_val), textcoords="offset points", 
                             xytext=(0,15), ha='center', fontsize=8, color='#2E86AB')
             else:
-                plt.annotate(f'{gat_val:.3f}', (x, gat_val), textcoords="offset points", 
+                plt.annotate(f'{gnn_val:.3f}', (x, gnn_val), textcoords="offset points", 
                             xytext=(0,15), ha='center', fontsize=9, color='#2E86AB')
             
             if rnn_std > 0:
@@ -839,36 +839,36 @@ class FaultRatioComparison:
         # Extract successful experiment data
         fault_ratios = []
         fault_counts = []
-        gat_f1_scores = []
+        gnn_f1_scores = []
         rnn_f1_scores = []
-        gat_f1_stds = []
+        gnn_f1_stds = []
         rnn_f1_stds = []
-        gat_accuracies = []
+        gnn_accuracies = []
         rnn_accuracies = []
-        gat_accuracy_stds = []
+        gnn_accuracy_stds = []
         rnn_accuracy_stds = []
-        gat_train_times = []
+        gnn_train_times = []
         rnn_train_times = []
-        gat_train_time_stds = []
+        gnn_train_time_stds = []
         rnn_train_time_stds = []
         
         for result in all_results['results']:
-            if 'error' in result or result['gat_results'] is None:
+            if 'error' in result or result['gnn_results'] is None:
                 continue
             
             fault_ratios.append(result['fault_ratio'] * 100)  # Convert to percentage
             fault_counts.append(result['fault_count'])
-            gat_f1_scores.append(result['gat_results']['f1_score'])
+            gnn_f1_scores.append(result['gnn_results']['f1_score'])
             rnn_f1_scores.append(result['rnn_results']['f1_score'])
-            gat_f1_stds.append(result['gat_results'].get('f1_std', 0))
+            gnn_f1_stds.append(result['gnn_results'].get('f1_std', 0))
             rnn_f1_stds.append(result['rnn_results'].get('f1_std', 0))
-            gat_accuracies.append(result['gat_results']['accuracy'])
+            gnn_accuracies.append(result['gnn_results']['accuracy'])
             rnn_accuracies.append(result['rnn_results']['accuracy'])
-            gat_accuracy_stds.append(result['gat_results'].get('accuracy_std', 0))
+            gnn_accuracy_stds.append(result['gnn_results'].get('accuracy_std', 0))
             rnn_accuracy_stds.append(result['rnn_results'].get('accuracy_std', 0))
-            gat_train_times.append(result['gat_results']['train_time'])
+            gnn_train_times.append(result['gnn_results']['train_time'])
             rnn_train_times.append(result['rnn_results']['train_time'])
-            gat_train_time_stds.append(result['gat_results'].get('train_time_std', 0))
+            gnn_train_time_stds.append(result['gnn_results'].get('train_time_std', 0))
             rnn_train_time_stds.append(result['rnn_results'].get('train_time_std', 0))
         
         if not fault_ratios:
@@ -881,35 +881,35 @@ class FaultRatioComparison:
         
         # 1. F1 Score fault ratio trend chart
         self._create_single_chart(
-            fault_ratios, gat_f1_scores, rnn_f1_scores, gat_f1_stds, rnn_f1_stds,
+            fault_ratios, gnn_f1_scores, rnn_f1_scores, gnn_f1_stds, rnn_f1_stds,
             'F1 Score', 'Fault Ratio (%)', 'F1 Score',
-            f'{self.graph_type.upper()} (n={self.n}) Fault Ratio F1 Trend: GAT vs RNNIFDCOM',
+            f'{self.graph_type.upper()} (n={self.n}) Fault Ratio F1 Trend: GNN vs RNNIFDCOM',
             output_dir, 'fault_ratio_f1_trend'
         )
         
         # 2. Accuracy fault ratio trend chart
         self._create_single_chart(
-            fault_ratios, gat_accuracies, rnn_accuracies, gat_accuracy_stds, rnn_accuracy_stds,
+            fault_ratios, gnn_accuracies, rnn_accuracies, gnn_accuracy_stds, rnn_accuracy_stds,
             'Accuracy', 'Fault Ratio (%)', 'Accuracy',
-            f'{self.graph_type.upper()} (n={self.n}) Fault Ratio Accuracy Trend: GAT vs RNNIFDCOM',
+            f'{self.graph_type.upper()} (n={self.n}) Fault Ratio Accuracy Trend: GNN vs RNNIFDCOM',
             output_dir, 'fault_ratio_accuracy_trend'
         )
         
         # 3. Training time fault ratio trend chart
         self._create_single_chart(
-            fault_ratios, gat_train_times, rnn_train_times, gat_train_time_stds, rnn_train_time_stds,
+            fault_ratios, gnn_train_times, rnn_train_times, gnn_train_time_stds, rnn_train_time_stds,
             'Training Time', 'Fault Ratio (%)', 'Training Time (seconds)',
-            f'{self.graph_type.upper()} (n={self.n}) Fault Ratio Training Time Trend: GAT vs RNN',
+            f'{self.graph_type.upper()} (n={self.n}) Fault Ratio Training Time Trend: GNN vs RNN',
             output_dir, 'fault_ratio_time_trend',
             ylim_max=None  # Training time does not set upper limit
         )
         
-        # 4. GAT vs RNN performance difference chart
-        f1_diff = np.array(gat_f1_scores) - np.array(rnn_f1_scores)
+        # 4. GNN vs RNN performance difference chart
+        f1_diff = np.array(gnn_f1_scores) - np.array(rnn_f1_scores)
         self._create_difference_chart(
             fault_ratios, f1_diff,
-            'Fault Ratio (%)', 'F1 Difference (GAT - RNN)',
-            f'{self.graph_type.upper()} (n={self.n}) GAT vs RNN Fault Ratio Performance Difference',
+            'Fault Ratio (%)', 'F1 Difference (GNN - RNN)',
+            f'{self.graph_type.upper()} (n={self.n}) GNN vs RNN Fault Ratio Performance Difference',
             output_dir, 'fault_ratio_performance_difference'
         )
         
@@ -950,7 +950,7 @@ class FaultRatioComparison:
         # Add legend
         from matplotlib.patches import Patch
         legend_elements = [
-            Patch(facecolor='#27AE60', label='GAT Better'),
+            Patch(facecolor='#27AE60', label='GNN Better'),
             Patch(facecolor='#E74C3C', label='RNN Better'),
             Patch(facecolor='#95A5A6', label='Comparable')
         ]
@@ -971,7 +971,7 @@ class FaultRatioComparison:
 
 def main():
     """Main function"""
-    parser = argparse.ArgumentParser(description='Fault ratio comparison experiment: GAT vs RNN')
+    parser = argparse.ArgumentParser(description='Fault ratio comparison experiment: GNN vs RNN')
     
     # Graph configuration parameters
     parser.add_argument('--graph_type', type=str, default='bc', 
@@ -993,11 +993,11 @@ def main():
     parser.add_argument('--seed', type=int, default=42, help='Random seed')
     parser.add_argument('--n_jobs', type=int, default=None, help='Number of parallel processes')
     
-    # GAT parameters
-    parser.add_argument('--gat_hidden_dim', type=int, default=64, help='GAT hidden layer dimension')
-    parser.add_argument('--gat_num_layers', type=int, default=2, help='GAT number of layers')
-    parser.add_argument('--gat_heads', type=int, default=8, help='GAT number of attention heads')
-    parser.add_argument('--gat_batch_size', type=int, default=16, help='GAT batch size')
+    # GNN parameters
+    parser.add_argument('--gnn_hidden_dim', type=int, default=64, help='GNN hidden layer dimension')
+    parser.add_argument('--gnn_num_layers', type=int, default=2, help='GNN number of layers')
+    parser.add_argument('--gnn_heads', type=int, default=8, help='GNN number of attention heads')
+    parser.add_argument('--gnn_batch_size', type=int, default=16, help='GNN batch size')
     
     # RNN parameters
     parser.add_argument('--rnn_hidden_dims', type=int, nargs='+', default=[64, 32], 
@@ -1046,12 +1046,12 @@ def main():
             logger.info("=" * 80)
             logger.info("Fault ratio experiment final result summary:")
             logger.info(f"  Successfully completed {summary['successful_experiments']} experiments")
-            logger.info(f"  GAT average F1: {summary['avg_gat_f1']:.4f}")
+            logger.info(f"  GNN average F1: {summary['avg_gnn_f1']:.4f}")
             logger.info(f"  RNN average F1: {summary['avg_rnn_f1']:.4f}")
             
-            gat_wins = sum(1 for i in range(len(summary['gat_scores'])) 
-                          if summary['gat_scores'][i] > summary['rnn_scores'][i])
-            logger.info(f"  GAT wins: {gat_wins}/{summary['successful_experiments']} times")
+            gnn_wins = sum(1 for i in range(len(summary['gnn_scores'])) 
+                          if summary['gnn_scores'][i] > summary['rnn_scores'][i])
+            logger.info(f"  GNN wins: {gnn_wins}/{summary['successful_experiments']} times")
             logger.info("=" * 80)
         else:
             logger.error("All fault ratio experiments failed!")

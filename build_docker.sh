@@ -1,13 +1,13 @@
 #!/bin/bash
 
-# FaultGAT Docker Build and Push Script
+# FaultGNN Docker Build and Push Script
 
 set -e
 
-IMAGE_NAME="ksx/faultgat"
+IMAGE_NAME="ksx/faultgnn"
 VERSION="latest"
 
-echo "🐳 Building FaultGAT Docker image..."
+echo "🐳 Building FaultGNN Docker image..."
 
 # Build the Docker image
 docker build -t ${IMAGE_NAME}:${VERSION} .
@@ -16,7 +16,7 @@ echo "✅ Docker image built successfully: ${IMAGE_NAME}:${VERSION}"
 
 # Test the image
 echo "🧪 Testing the Docker image..."
-docker run --rm ${IMAGE_NAME}:${VERSION} python -c "from models import FaultGAT; print('✅ FaultGAT test passed')"
+docker run --rm ${IMAGE_NAME}:${VERSION} python -c "from models import FaultGNN; print('✅ FaultGNN test passed')"
 
 echo "🎉 Docker image is ready!"
 echo ""
@@ -30,7 +30,7 @@ echo "  docker run --rm -v \$(pwd)/results_RQ2:/app/results_RQ2 ${IMAGE_NAME}:${
 echo "  docker run --rm -v \$(pwd)/results_RQ3:/app/results_RQ3 ${IMAGE_NAME}:${VERSION} python RQ3.py"
 echo ""
 echo "  # Or use docker-compose:"
-echo "  docker-compose up faultgat"
+echo "  docker-compose up faultgnn"
 echo "  docker-compose run rq1"
 echo "  docker-compose run rq2"  
 echo "  docker-compose run rq3"

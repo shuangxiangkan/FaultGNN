@@ -1,6 +1,6 @@
-# FaultGAT: A Graph Attention Network-Based Approach for System-Level Intermittent Fault Diagnosis
+# FaultGNN: A Graph Attention Network-Based Approach for System-Level Intermittent Fault Diagnosis
 
-This repository contains the implementation of FaultGAT, a Graph Attention Network-Based Approach for System-Level Intermittent Fault Diagnosis
+This repository contains the implementation of FaultGNN, a Graph Attention Network-Based Approach for System-Level Intermittent Fault Diagnosis
 
 ## 🚀 Quick Start
 
@@ -10,17 +10,17 @@ This repository contains the implementation of FaultGAT, a Graph Attention Netwo
 
 ```bash
 # Option A: Pull the pre-built image (when available)
-docker pull ksx/faultgat:latest
+docker pull ksx/faultgnn:latest
 
 # Option B: Build locally
-git clone https://github.com/shuangxiangkan/FaultGAT.git
-cd FaultGAT
+git clone https://github.com/shuangxiangkan/FaultGNN.git
+cd FaultGNN
 ./build_docker.sh
 ```
 
 ### Option 2: Local Installation
 
-⚠️ **IMPORTANT**: Requires exact Python version due to compiled bytecode (`FaultGAT.pyc`)
+⚠️ **IMPORTANT**: Requires exact Python version due to compiled bytecode (`FaultGNN.pyc`)
 
 **Requirements:**
 - **Python 3.10.x** (Strictly required - other versions will not work)
@@ -29,8 +29,8 @@ cd FaultGAT
 
 ```bash
 # Clone the repository
-git clone https://github.com/shuangxiangkan/FaultGAT.git
-cd FaultGAT
+git clone https://github.com/shuangxiangkan/FaultGNN.git
+cd FaultGNN
 
 # Create virtual environment with Python 3.10 (REQUIRED)
 python3.10 -m venv pyg_env
@@ -61,14 +61,14 @@ docker-compose run rq3  # Research Question 3: Partial symptom analysis
 mkdir -p results_RQ1 results_RQ2 results_RQ3
 
 # Run experiments
-docker run --rm -v $(pwd)/results_RQ1:/app/results_RQ1 ksx/faultgat:latest python RQ1.py
-docker run --rm -v $(pwd)/results_RQ2:/app/results_RQ2 ksx/faultgat:latest python RQ2.py
-docker run --rm -v $(pwd)/results_RQ3:/app/results_RQ3 ksx/faultgat:latest python RQ3.py
+docker run --rm -v $(pwd)/results_RQ1:/app/results_RQ1 ksx/faultgnn:latest python RQ1.py
+docker run --rm -v $(pwd)/results_RQ2:/app/results_RQ2 ksx/faultgnn:latest python RQ2.py
+docker run --rm -v $(pwd)/results_RQ3:/app/results_RQ3 ksx/faultgnn:latest python RQ3.py
 ```
 
 **Interactive mode (for debugging):**
 ```bash
-docker run -it ksx/faultgat:latest bash
+docker run -it ksx/faultgnn:latest bash
 # Inside container: python RQ1.py
 ```
 
@@ -97,13 +97,13 @@ python RQ3.py
 If you encounter import errors:
 
 ```python
-RuntimeError: Cannot load FaultGAT model!
+RuntimeError: Cannot load FaultGNN model!
 Your Python version: X.Y
 Supported versions: 3.10
 ```
 
 **Solutions:**
 1. Use Python 3.10: `pyenv install 3.10.12 && pyenv local 3.10.12`
-2. Use conda: `conda create -n faultgat python=3.10`
+2. Use conda: `conda create -n faultgnn python=3.10`
 
 

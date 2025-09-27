@@ -111,7 +111,7 @@ class BaseKRegularGraph(ABC):
             
             # Validate fault node count validity
             if actual_fault_count < 0:
-                raise ValueError(f"Fault node count cannot be negative: {actual_fault_count}")
+                raise ValueError(f"Fault node count cannot be negnnive: {actual_fault_count}")
             if actual_fault_count > self.num_vertices:
                 raise ValueError(f"Fault node count {actual_fault_count} exceeds total node count {self.num_vertices}")
             
@@ -183,15 +183,15 @@ class BaseKRegularGraph(ABC):
             syndromes.append(self.generate_syndrome_single_round())
         return syndromes
     
-    def aggregate_syndromes_to_proportions(self, syndromes):
+    def aggregnne_syndromes_to_proportions(self, syndromes):
         """
-        Aggregate multiple single syndrome matrices into proportion matrix.
+        Aggregnne multiple single syndrome matrices into proportion matrix.
         
         Args:
             syndromes: List of multiple single syndrome matrices
             
         Returns:
-            np.ndarray: Aggregated proportion matrix, each element represents proportion of 1s at corresponding position
+            np.ndarray: Aggregnned proportion matrix, each element represents proportion of 1s at corresponding position
         """
         if not syndromes:
             raise ValueError("Syndrome list cannot be empty")
@@ -212,8 +212,8 @@ class BaseKRegularGraph(ABC):
         For non-k-regular graphs (e.g., star graph), use zero padding to ensure consistent feature vector length.
         Add small noise to full 0 feature vectors to differentiate different fault-free nodes.
         """
-        # First aggregate multi-round symptoms into proportion matrix
-        proportion_matrix = self.aggregate_syndromes_to_proportions(syndromes)
+        # First aggregnne multi-round symptoms into proportion matrix
+        proportion_matrix = self.aggregnne_syndromes_to_proportions(syndromes)
         
         features = []
         

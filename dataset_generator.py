@@ -329,11 +329,11 @@ class UnifiedDatasetGenerator:
         
         return results
     
-    def convert_to_gat_format_parallel(self, raw_data: Dict) -> List[Data]:
+    def convert_to_gnn_format_parallel(self, raw_data: Dict) -> List[Data]:
         """
-        Parallel conversion to GAT format - improved resource management
+        Parallel conversion to GNN format - improved resource management
         """
-        logger.info("Parallel conversion of sparse data to GAT format...")
+        logger.info("Parallel conversion of sparse data to GNN format...")
         start_time = time.time()
         
         # Prepare conversion task parameters
@@ -353,23 +353,23 @@ class UnifiedDatasetGenerator:
         try:
             if self.use_global_pool:
                 pool = _get_or_create_global_pool(self.n_jobs)
-                gat_results = pool.map(convert_single_graph_to_gat, conversion_args)
+                gnn_results = pool.map(convert_single_graph_to_gnn, conversion_args)
             else:
                 with Pool(processes=self.n_jobs) as pool:
-                    gat_results = pool.map(convert_single_graph_to_gat, conversion_args)
+                    gnn_results = pool.map(convert_single_graph_to_gnn, conversion_args)
         except Exception as e:
-            logger.error(f"GAT format conversion failed: {e}")
+            logger.error(f"GNN format conversion failed: {e}")
             raise
         
         # Sort by index
-        gat_results.sort(key=lambda x: x[0])
-        gat_dataset = [result[1] for result in gat_results]
+        gnn_results.sort(key=lambda x: x[0])
+        gnn_dataset = [result[1] for result in gnn_results]
         
         conversion_time = time.time() - start_time
-        logger.info(f"GAT format conversion completed: {len(gat_dataset)} graphs "
+        logger.info(f"GNN format conversion completed: {len(gnn_dataset)} graphs "
                    f"(time: {conversion_time:.1f} seconds)")
         
-        return gat_dataset
+        return gnn_dataset
     
     def convert_to_rnn_format_parallel(self, raw_data: Dict) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -420,7 +420,7 @@ class UnifiedDatasetGenerator:
         conversion_time = time.time() - start_time
         logger.info(f"RNNIFDCom_PMC format conversion completed: X.shape={X.shape}, y.shape={y.shape} "
                    f"(time: {conversion_time:.1f} seconds)")
-        logger.info(f"Data utilization: {X.shape[0]} RNN samples vs {len(raw_data['sparse_syndromes'])} GAT samples "
+        logger.info(f"Data utilization: {X.shape[0]} RNN samples vs {len(raw_data['sparse_syndromes'])} GNN samples "
                    f"(ratio {X.shape[0]/len(raw_data['sparse_syndromes']):.1f}:1)")
         
         return X, y
@@ -447,14 +447,14 @@ class UnifiedDatasetGenerator:
         # 1. Parallel generation of raw data
         raw_data = self.generate_raw_dataset(num_graphs)
         
-        # 2. Parallel conversion to GAT format
-        gat_data = self.convert_to_gat_format_parallel(raw_data)
+        # 2. Parallel conversion to GNN format
+        gnn_data = self.convert_to_gnn_format_parallel(raw_data)
         
         # 3. Parallel conversion to RNNIFDCom_PMC format
         rnn_data = self.convert_to_rnn_format_parallel(raw_data)
         
         # 4. Save dataset
-        self.save_dataset(raw_data, gat_data, rnn_data, save_dir)
+        self.save_dataset(raw_data, gnn_data, rnn_data, save_dir)
         
         total_time = time.time() - total_start_time
         logger.info("=" * 60)
@@ -463,12 +463,12 @@ class UnifiedDatasetGenerator:
         
         return {
             'raw_data': raw_data,
-            'gat_data': gat_data,
+            'gnn_data': gnn_data,
             'rnn_data': rnn_data,
             'metadata': raw_data['metadata']  # Add metadata key
         }
     
-    def save_dataset(self, raw_data: Dict, gat_data: List[Data], 
+    def save_dataset(self, raw_data: Dict, gnn_data: List[Data], 
                      rnn_data: Tuple[np.ndarray, np.ndarray], 
                      save_dir: str) -> None:
         """
@@ -480,8 +480,8 @@ class UnifiedDatasetGenerator:
         with open(os.path.join(save_dir, 'raw_data.pkl'), 'wb') as f:
             pickle.dump(raw_data, f)
         
-        # Save GAT data
-        torch.save(gat_data, os.path.join(save_dir, 'gat_data.pt'), _use_new_zipfile_serialization=False)
+        # Save GNN data
+        torch.save(gnn_data, os.path.join(save_dir, 'gnn_data.pt'), _use_new_zipfile_serialization=False)
         
         # Save RNNIFDCom_PMC data
         rnn_X, rnn_y = rnn_data
@@ -490,20 +490,20 @@ class UnifiedDatasetGenerator:
         # Save metadata
         metadata = raw_data['metadata'].copy()
         metadata['num_graphs'] = len(raw_data['sparse_syndromes'])
-        metadata['gat_feature_dim'] = gat_data[0].x.shape[1] if gat_data else 0
+        metadata['gnn_feature_dim'] = gnn_data[0].x.shape[1] if gnn_data else 0
         metadata['rnn_feature_dim'] = rnn_X.shape[1] if len(rnn_X) > 0 else 0
         
         # Add new statistics
-        metadata['gat_samples'] = len(gat_data)
+        metadata['gnn_samples'] = len(gnn_data)
         metadata['rnn_samples'] = rnn_X.shape[0]
-        metadata['rnn_to_gat_ratio'] = rnn_X.shape[0] / len(gat_data) if len(gat_data) > 0 else 0
+        metadata['rnn_to_gnn_ratio'] = rnn_X.shape[0] / len(gnn_data) if len(gnn_data) > 0 else 0
         
         with open(os.path.join(save_dir, 'metadata.pkl'), 'wb') as f:
             pickle.dump(metadata, f)
         
         logger.info(f"Dataset saved to: {save_dir}")
-        logger.info(f"File list: raw_data.pkl, gat_data.pt, rnn_data.npz, metadata.pkl")
-        logger.info(f"Statistics: GAT={len(gat_data)} samples, RNN={rnn_X.shape[0]} samples")
+        logger.info(f"File list: raw_data.pkl, gnn_data.pt, rnn_data.npz, metadata.pkl")
+        logger.info(f"Statistics: GNN={len(gnn_data)} samples, RNN={rnn_X.shape[0]} samples")
         
 
 def generate_single_graph_data(args):
@@ -555,9 +555,9 @@ def generate_single_graph_data(args):
         return None
 
 
-def convert_single_graph_to_gat(args):
+def convert_single_graph_to_gnn(args):
     """
-    Convert single graph to GAT format (for parallel processing)
+    Convert single graph to GNN format (for parallel processing)
     """
     (idx, sparse_syndromes, fault_states, config, 
      graph_type, n, k, fault_rate, fault_count, intermittent_prob) = args
@@ -583,7 +583,7 @@ def convert_single_graph_to_gat(args):
         
         return (idx, data)
     except Exception as e:
-        logger.error(f"Error converting graph {idx} to GAT format: {e}")
+        logger.error(f"Error converting graph {idx} to GNN format: {e}")
         return (idx, None)
 
 
@@ -631,7 +631,7 @@ class UnifiedDatasetLoader:
         logger.info(f"Detected storage format: {storage_format}")
         
         # Remaining loading logic remains unchanged
-        gat_data = torch.load(os.path.join(save_dir, 'gat_data.pt'), weights_only=False)
+        gnn_data = torch.load(os.path.join(save_dir, 'gnn_data.pt'), weights_only=False)
         rnn_file = np.load(os.path.join(save_dir, 'rnn_data.npz'))
         rnn_data = (rnn_file['X'], rnn_file['y'])
         
@@ -641,7 +641,7 @@ class UnifiedDatasetLoader:
         # Ensure the returned dictionary contains the metadata key
         return {
             'raw_data': raw_data,
-            'gat_data': gat_data,
+            'gnn_data': gnn_data,
             'rnn_data': rnn_data,
             'metadata': metadata  # Use data loaded from metadata.pkl
         }
@@ -652,16 +652,16 @@ class UnifiedDatasetLoader:
                      seed: int = 42) -> Dict:
         """
         Split dataset into training/validation/test sets
-        Note: GAT and RNN have different split strategies
+        Note: GNN and RNN have different split strategies
         """
         assert abs(train_ratio + val_ratio + test_ratio - 1.0) < 1e-6, "Sum of ratios must be 1"
         
         rng = np.random.default_rng(seed)
-        gat_data = dataset['gat_data']
+        gnn_data = dataset['gnn_data']
         rnn_X, rnn_y = dataset['rnn_data']
         
-        # GAT data split (by graph)
-        num_graphs = len(gat_data)
+        # GNN data split (by graph)
+        num_graphs = len(gnn_data)
         graph_indices = rng.permutation(num_graphs)
         
         train_end = int(num_graphs * train_ratio)
@@ -671,10 +671,10 @@ class UnifiedDatasetLoader:
         val_graph_indices = graph_indices[train_end:val_end]
         test_graph_indices = graph_indices[val_end:]
         
-        # Split GAT data
-        gat_train = [gat_data[i] for i in train_graph_indices]
-        gat_val = [gat_data[i] for i in val_graph_indices]
-        gat_test = [gat_data[i] for i in test_graph_indices]
+        # Split GNN data
+        gnn_train = [gnn_data[i] for i in train_graph_indices]
+        gnn_val = [gnn_data[i] for i in val_graph_indices]
+        gnn_test = [gnn_data[i] for i in test_graph_indices]
         
         # RNN data split (by sample, but maintain graph integrity)
         # Assume each graph has num_rounds samples
@@ -710,19 +710,19 @@ class UnifiedDatasetLoader:
         rnn_test = (rnn_X[rnn_test_indices], rnn_y[rnn_test_indices])
         
         logger.info(f"Dataset split completed:")
-        logger.info(f"  GAT - Training set: {len(train_graph_indices)} graphs")
-        logger.info(f"  GAT - Validation set: {len(val_graph_indices)} graphs")
-        logger.info(f"  GAT - Test set: {len(test_graph_indices)} graphs")
+        logger.info(f"  GNN - Training set: {len(train_graph_indices)} graphs")
+        logger.info(f"  GNN - Validation set: {len(val_graph_indices)} graphs")
+        logger.info(f"  GNN - Test set: {len(test_graph_indices)} graphs")
         logger.info(f"  RNN - Training set: {len(rnn_train_indices)} samples")
         logger.info(f"  RNN - Validation set: {len(rnn_val_indices)} samples")
         logger.info(f"  RNN - Test set: {len(rnn_test_indices)} samples")
-        logger.info(f"  RNN/GAT sample ratio: {num_rounds}:1")
+        logger.info(f"  RNN/GNN sample ratio: {num_rounds}:1")
         
         return {
-            'gat': {
-                'train': gat_train,
-                'val': gat_val,
-                'test': gat_test
+            'gnn': {
+                'train': gnn_train,
+                'val': gnn_val,
+                'test': gnn_test
             },
             'rnn': {
                 'train': rnn_train,

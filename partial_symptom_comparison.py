@@ -3,7 +3,7 @@
 Partial Symptom Comparison Experiment
 ===================================
 
-This script is used to compare GAT and RNNIFDCOM model performance under partial symptom conditions.
+This script is used to compare GNN and RNNIFDCOM model performance under partial symptom conditions.
 """
 
 import torch
@@ -107,11 +107,11 @@ class PartialSymptomComparison:
                 if result is not None:
                     result.update(config)  # Add configuration information to results
                     all_results.append(result)
-                    gat_f1 = result.get('gat_test_f1', 'N/A')
+                    gnn_f1 = result.get('gnn_test_f1', 'N/A')
                     rnn_f1 = result.get('rnn_test_f1', 'N/A')
-                    gat_f1_str = f"{gat_f1:.4f}" if isinstance(gat_f1, (int, float)) else str(gat_f1)
+                    gnn_f1_str = f"{gnn_f1:.4f}" if isinstance(gnn_f1, (int, float)) else str(gnn_f1)
                     rnn_f1_str = f"{rnn_f1:.4f}" if isinstance(rnn_f1, (int, float)) else str(rnn_f1)
-                    logger.info(f"Experiment successful: GAT F1={gat_f1_str}, RNN F1={rnn_f1_str}")
+                    logger.info(f"Experiment successful: GNN F1={gnn_f1_str}, RNN F1={rnn_f1_str}")
                 else:
                     logger.warning(f"Experiment failed: {config}")
                     
@@ -158,14 +158,14 @@ class PartialSymptomComparison:
         run_args = argparse.Namespace(**vars(args))
         
         # Ensure all required parameters exist
-        if not hasattr(run_args, 'gat_batch_size'):
-            run_args.gat_batch_size = 16
-        if not hasattr(run_args, 'gat_hidden_dim'):
-            run_args.gat_hidden_dim = 64
-        if not hasattr(run_args, 'gat_num_layers'):
-            run_args.gat_num_layers = 2
-        if not hasattr(run_args, 'gat_heads'):
-            run_args.gat_heads = 8
+        if not hasattr(run_args, 'gnn_batch_size'):
+            run_args.gnn_batch_size = 16
+        if not hasattr(run_args, 'gnn_hidden_dim'):
+            run_args.gnn_hidden_dim = 64
+        if not hasattr(run_args, 'gnn_num_layers'):
+            run_args.gnn_num_layers = 2
+        if not hasattr(run_args, 'gnn_heads'):
+            run_args.gnn_heads = 8
         if not hasattr(run_args, 'rnn_hidden_dims'):
             run_args.rnn_hidden_dims = [64, 32]
         if not hasattr(run_args, 'lr'):
@@ -214,15 +214,15 @@ class PartialSymptomComparison:
                 'run_id': result.get('run_id', 0)
             }
             
-            # Extract GAT results
-            if 'gat_results' in result and result['gat_results']:
-                gat_results = result['gat_results']
-                flattened_result['gat_test_accuracy'] = gat_results.get('accuracy')
-                flattened_result['gat_test_f1'] = gat_results.get('f1_score')
-                flattened_result['gat_test_precision'] = gat_results.get('precision')
-                flattened_result['gat_test_recall'] = gat_results.get('recall')
-                flattened_result['gat_test_fnr'] = gat_results.get('false_negative_rate')
-                flattened_result['gat_test_fpr'] = gat_results.get('false_positive_rate')
+            # Extract GNN results
+            if 'gnn_results' in result and result['gnn_results']:
+                gnn_results = result['gnn_results']
+                flattened_result['gnn_test_accuracy'] = gnn_results.get('accuracy')
+                flattened_result['gnn_test_f1'] = gnn_results.get('f1_score')
+                flattened_result['gnn_test_precision'] = gnn_results.get('precision')
+                flattened_result['gnn_test_recall'] = gnn_results.get('recall')
+                flattened_result['gnn_test_fnr'] = gnn_results.get('false_negnnive_rate')
+                flattened_result['gnn_test_fpr'] = gnn_results.get('false_positive_rate')
             
             # Extract RNN results
             if 'rnn_results' in result and result['rnn_results']:
@@ -231,7 +231,7 @@ class PartialSymptomComparison:
                 flattened_result['rnn_test_f1'] = rnn_results.get('f1_score')
                 flattened_result['rnn_test_precision'] = rnn_results.get('precision')
                 flattened_result['rnn_test_recall'] = rnn_results.get('recall')
-                flattened_result['rnn_test_fnr'] = rnn_results.get('false_negative_rate')
+                flattened_result['rnn_test_fnr'] = rnn_results.get('false_negnnive_rate')
                 flattened_result['rnn_test_fpr'] = rnn_results.get('false_positive_rate')
             
             flattened_results.append(flattened_result)
@@ -255,8 +255,8 @@ class PartialSymptomComparison:
                 if len(subset) == 0:
                     continue
                 
-                # Calculate GAT metrics statistics
-                gat_metrics = ['gat_test_accuracy', 'gat_test_f1', 'gat_test_precision', 'gat_test_recall', 'gat_test_fnr', 'gat_test_fpr']
+                # Calculate GNN metrics statistics
+                gnn_metrics = ['gnn_test_accuracy', 'gnn_test_f1', 'gnn_test_precision', 'gnn_test_recall', 'gnn_test_fnr', 'gnn_test_fpr']
                 rnn_metrics = ['rnn_test_accuracy', 'rnn_test_f1', 'rnn_test_precision', 'rnn_test_recall', 'rnn_test_fnr', 'rnn_test_fpr']
                 
                 summary_row = {
@@ -266,8 +266,8 @@ class PartialSymptomComparison:
                     'num_runs': len(subset)
                 }
                 
-                # GAT statistics
-                for metric in gat_metrics:
+                # GNN statistics
+                for metric in gnn_metrics:
                     if metric in subset.columns:
                         values = subset[metric].dropna()
                         if len(values) > 0:
@@ -386,15 +386,15 @@ class PartialSymptomComparison:
                     missing_ratio = row['missing_ratio']
                     missing_percentage = f"{missing_ratio * 100:.1f}%"
                     
-                    # GAT results
-                    gat_accuracy = f"{row.get('gat_test_accuracy_mean', 0):.4f}" if 'gat_test_accuracy_mean' in row and pd.notna(row.get('gat_test_accuracy_mean')) else "N/A"
-                    gat_precision = f"{row.get('gat_test_precision_mean', 0):.4f}" if 'gat_test_precision_mean' in row and pd.notna(row.get('gat_test_precision_mean')) else "N/A"
-                    gat_recall = f"{row.get('gat_test_recall_mean', 0):.4f}" if 'gat_test_recall_mean' in row and pd.notna(row.get('gat_test_recall_mean')) else "N/A"
-                    gat_f1 = f"{row.get('gat_test_f1_mean', 0):.4f}" if 'gat_test_f1_mean' in row and pd.notna(row.get('gat_test_f1_mean')) else "N/A"
+                    # GNN results
+                    gnn_accuracy = f"{row.get('gnn_test_accuracy_mean', 0):.4f}" if 'gnn_test_accuracy_mean' in row and pd.notna(row.get('gnn_test_accuracy_mean')) else "N/A"
+                    gnn_precision = f"{row.get('gnn_test_precision_mean', 0):.4f}" if 'gnn_test_precision_mean' in row and pd.notna(row.get('gnn_test_precision_mean')) else "N/A"
+                    gnn_recall = f"{row.get('gnn_test_recall_mean', 0):.4f}" if 'gnn_test_recall_mean' in row and pd.notna(row.get('gnn_test_recall_mean')) else "N/A"
+                    gnn_f1 = f"{row.get('gnn_test_f1_mean', 0):.4f}" if 'gnn_test_f1_mean' in row and pd.notna(row.get('gnn_test_f1_mean')) else "N/A"
                     
-                    # GAT false negative rate and false positive rate
-                    gat_fnr = f"{row.get('gat_test_fnr_mean', 0):.4f}" if 'gat_test_fnr_mean' in row and pd.notna(row.get('gat_test_fnr_mean')) else "N/A"
-                    gat_fpr = f"{row.get('gat_test_fpr_mean', 0):.4f}" if 'gat_test_fpr_mean' in row and pd.notna(row.get('gat_test_fpr_mean')) else "N/A"
+                    # GNN false negnnive rate and false positive rate
+                    gnn_fnr = f"{row.get('gnn_test_fnr_mean', 0):.4f}" if 'gnn_test_fnr_mean' in row and pd.notna(row.get('gnn_test_fnr_mean')) else "N/A"
+                    gnn_fpr = f"{row.get('gnn_test_fpr_mean', 0):.4f}" if 'gnn_test_fpr_mean' in row and pd.notna(row.get('gnn_test_fpr_mean')) else "N/A"
                     
                     # RNN results
                     rnn_accuracy = f"{row.get('rnn_test_accuracy_mean', 0):.4f}" if 'rnn_test_accuracy_mean' in row and pd.notna(row.get('rnn_test_accuracy_mean')) else "N/A"
@@ -402,12 +402,12 @@ class PartialSymptomComparison:
                     rnn_recall = f"{row.get('rnn_test_recall_mean', 0):.4f}" if 'rnn_test_recall_mean' in row and pd.notna(row.get('rnn_test_recall_mean')) else "N/A"
                     rnn_f1 = f"{row.get('rnn_test_f1_mean', 0):.4f}" if 'rnn_test_f1_mean' in row and pd.notna(row.get('rnn_test_f1_mean')) else "N/A"
                     
-                    # RNN false negative rate and false positive rate
+                    # RNN false negnnive rate and false positive rate
                     rnn_fnr = f"{row.get('rnn_test_fnr_mean', 0):.4f}" if 'rnn_test_fnr_mean' in row and pd.notna(row.get('rnn_test_fnr_mean')) else "N/A"
                     rnn_fpr = f"{row.get('rnn_test_fpr_mean', 0):.4f}" if 'rnn_test_fpr_mean' in row and pd.notna(row.get('rnn_test_fpr_mean')) else "N/A"
                     
-                    # Write GAT row
-                    f.write(f"{missing_percentage:<8} {'GAT':<8} {gat_accuracy:<12} {gat_precision:<12} {gat_recall:<12} {gat_f1:<12} {gat_fnr:<12} {gat_fpr:<12}\n")
+                    # Write GNN row
+                    f.write(f"{missing_percentage:<8} {'GNN':<8} {gnn_accuracy:<12} {gnn_precision:<12} {gnn_recall:<12} {gnn_f1:<12} {gnn_fnr:<12} {gnn_fpr:<12}\n")
                     
                     # Write RNN row
                     f.write(f"{'':<8} {'RNN':<8} {rnn_accuracy:<12} {rnn_precision:<12} {rnn_recall:<12} {rnn_f1:<12} {rnn_fnr:<12} {rnn_fpr:<12}\n")
@@ -421,12 +421,12 @@ class PartialSymptomComparison:
             f.write("Explanation:\n")
             f.write("- Accuracy (Accuracy): Correctly predicted samples / Total samples\n")
             f.write("- Precision (Precision): True positives / (true positives + false positives)\n")
-            f.write("- Recall (Recall): True positives / (true positives + false negatives)\n")
+            f.write("- Recall (Recall): True positives / (true positives + false negnnives)\n")
             f.write("- F1 score (F1 score): 2 × (precision × recall) / (precision + recall)\n")
-            f.write("- FNR (FNR): False negatives / (true positives + false negatives) = 1 - recall\n")
-            f.write("- FPR (FPR): False positives / (false positives + true negatives)\n")
+            f.write("- FNR (FNR): False negnnives / (true positives + false negnnives) = 1 - recall\n")
+            f.write("- FPR (FPR): False positives / (false positives + true negnnives)\n")
             f.write("- N/A: Data unavailable or calculation error\n")
-            f.write("\nNote: In fault diagnosis, fault nodes are positive, and non-fault nodes are negative\n")
+            f.write("\nNote: In fault diagnosis, fault nodes are positive, and non-fault nodes are negnnive\n")
         
         logger.info(f"Performance statistics table saved: {table_path}")
     
@@ -472,12 +472,12 @@ class PartialSymptomComparison:
             subset = summary_df[summary_df['missing_type'] == missing_type]
             
             # Check if columns exist
-            if 'gat_test_f1_mean' in subset.columns:
-                # GAT F1
-                gat_yerr = subset['gat_test_f1_std'] if 'gat_test_f1_std' in subset.columns else None
-                plt.errorbar(subset['missing_percentage'], subset['gat_test_f1_mean'], 
-                            yerr=gat_yerr, 
-                            label=f'GAT ({missing_type})', marker='o', linewidth=2)
+            if 'gnn_test_f1_mean' in subset.columns:
+                # GNN F1
+                gnn_yerr = subset['gnn_test_f1_std'] if 'gnn_test_f1_std' in subset.columns else None
+                plt.errorbar(subset['missing_percentage'], subset['gnn_test_f1_mean'], 
+                            yerr=gnn_yerr, 
+                            label=f'GNN ({missing_type})', marker='o', linewidth=2)
             
             if 'rnn_test_f1_mean' in subset.columns:
                 # RNN F1  
@@ -508,12 +508,12 @@ class PartialSymptomComparison:
             subset = summary_df[summary_df['missing_type'] == missing_type]
             
             # Check if columns exist
-            if 'gat_test_accuracy_mean' in subset.columns:
-                # GAT Accuracy
-                gat_yerr = subset['gat_test_accuracy_std'] if 'gat_test_accuracy_std' in subset.columns else None
-                plt.errorbar(subset['missing_percentage'], subset['gat_test_accuracy_mean'],
-                            yerr=gat_yerr,
-                            label=f'GAT ({missing_type})', marker='o', linewidth=2)
+            if 'gnn_test_accuracy_mean' in subset.columns:
+                # GNN Accuracy
+                gnn_yerr = subset['gnn_test_accuracy_std'] if 'gnn_test_accuracy_std' in subset.columns else None
+                plt.errorbar(subset['missing_percentage'], subset['gnn_test_accuracy_mean'],
+                            yerr=gnn_yerr,
+                            label=f'GNN ({missing_type})', marker='o', linewidth=2)
             
             if 'rnn_test_accuracy_mean' in subset.columns:
                 # RNN Accuracy
@@ -547,14 +547,14 @@ class PartialSymptomComparison:
                 continue
                 
             # Check if columns exist and calculate performance degradation relative to no missing
-            if 'gat_test_f1_mean' in subset.columns and 'rnn_test_f1_mean' in subset.columns:
-                baseline_gat = subset.iloc[0]['gat_test_f1_mean']  # The first point as baseline
+            if 'gnn_test_f1_mean' in subset.columns and 'rnn_test_f1_mean' in subset.columns:
+                baseline_gnn = subset.iloc[0]['gnn_test_f1_mean']  # The first point as baseline
                 baseline_rnn = subset.iloc[0]['rnn_test_f1_mean']
                 
-                if baseline_gat > 0:  # Avoid division by zero error
-                    gat_degradation = (baseline_gat - subset['gat_test_f1_mean']) / baseline_gat * 100
-                    plt.plot(subset['missing_percentage'], gat_degradation, 
-                            label=f'GAT ({missing_type})', marker='o', linewidth=2)
+                if baseline_gnn > 0:  # Avoid division by zero error
+                    gnn_degradation = (baseline_gnn - subset['gnn_test_f1_mean']) / baseline_gnn * 100
+                    plt.plot(subset['missing_percentage'], gnn_degradation, 
+                            label=f'GNN ({missing_type})', marker='o', linewidth=2)
                 
                 if baseline_rnn > 0:  # Avoid division by zero error
                     rnn_degradation = (baseline_rnn - subset['rnn_test_f1_mean']) / baseline_rnn * 100
@@ -578,7 +578,7 @@ class PartialSymptomComparison:
         plt.figure(figsize=(10, 6))
         
         missing_types = summary_df['missing_type'].unique()
-        models = ['GAT', 'RNN']
+        models = ['GNN', 'RNN']
         
         # Calculate average performance standard deviation for each missing type (robustness indicator)
         robustness_data = []
@@ -587,19 +587,19 @@ class PartialSymptomComparison:
             subset = summary_df[summary_df['missing_type'] == missing_type]
             
             # Check if columns exist
-            gat_robustness = subset['gat_test_f1_std'].mean() if 'gat_test_f1_std' in subset.columns else 0
+            gnn_robustness = subset['gnn_test_f1_std'].mean() if 'gnn_test_f1_std' in subset.columns else 0
             rnn_robustness = subset['rnn_test_f1_std'].mean() if 'rnn_test_f1_std' in subset.columns else 0
             
-            robustness_data.append([gat_robustness, rnn_robustness])
+            robustness_data.append([gnn_robustness, rnn_robustness])
         
         # Plot bar chart
         x = np.arange(len(missing_types))
         width = 0.35
         
-        gat_values = [data[0] for data in robustness_data]
+        gnn_values = [data[0] for data in robustness_data]
         rnn_values = [data[1] for data in robustness_data]
         
-        plt.bar(x - width/2, gat_values, width, label='GAT', alpha=0.8)
+        plt.bar(x - width/2, gnn_values, width, label='GNN', alpha=0.8)
         plt.bar(x + width/2, rnn_values, width, label='RNN', alpha=0.8)
         
         plt.xlabel('Missing type', fontsize=12)
@@ -618,7 +618,7 @@ class PartialSymptomComparison:
 
 def main():
     """Main function"""
-    parser = argparse.ArgumentParser(description='GAT vs. RNN fault diagnosis comparison under partial symptoms')
+    parser = argparse.ArgumentParser(description='GNN vs. RNN fault diagnosis comparison under partial symptoms')
     
     # Graph configuration parameters
     parser.add_argument('--graph_type', type=str, default='augmented_k_ary_n_cube',
@@ -654,11 +654,11 @@ def main():
     parser.add_argument('--dataset_base_dir', type=str, default='datasets',
                        help='Dataset base directory')
     
-    # GAT parameters
-    parser.add_argument('--gat_hidden_dim', type=int, default=64, help='GAT hidden layer dimension')
-    parser.add_argument('--gat_num_layers', type=int, default=2, help='GAT number of layers')
-    parser.add_argument('--gat_heads', type=int, default=8, help='GAT number of attention heads')
-    parser.add_argument('--gat_batch_size', type=int, default=16, help='GAT batch size')
+    # GNN parameters
+    parser.add_argument('--gnn_hidden_dim', type=int, default=64, help='GNN hidden layer dimension')
+    parser.add_argument('--gnn_num_layers', type=int, default=2, help='GNN number of layers')
+    parser.add_argument('--gnn_heads', type=int, default=8, help='GNN number of attention heads')
+    parser.add_argument('--gnn_batch_size', type=int, default=16, help='GNN batch size')
     
     # RNN parameters
     parser.add_argument('--rnn_hidden_dims', type=int, nargs='+', default=[64, 32], 

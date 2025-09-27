@@ -178,22 +178,22 @@ class SimpleRQComparison:
                 config = self.create_experiment_config(random_fault_count)
                 result = run_single_experiment(config, run_args, output_dir)
                 
-                if 'error' not in result and result['gat_results'] is not None:
+                if 'error' not in result and result['gnn_results'] is not None:
                     # add fault node count information to result
                     result['fault_count'] = random_fault_count
                     experiment_results['runs'].append(result)
                     successful_runs += 1
                     
-                    gat_f1 = result['gat_results']['f1_score']
+                    gnn_f1 = result['gnn_results']['f1_score']
                     rnn_f1 = result['rnn_results']['f1_score']
-                    gat_acc = result['gat_results']['accuracy']
+                    gnn_acc = result['gnn_results']['accuracy']
                     rnn_acc = result['rnn_results']['accuracy']
-                    gat_fnr = result['gat_results']['false_negative_rate']
-                    gat_fpr = result['gat_results']['false_positive_rate']
-                    rnn_fnr = result['rnn_results']['false_negative_rate']
+                    gnn_fnr = result['gnn_results']['false_negnnive_rate']
+                    gnn_fpr = result['gnn_results']['false_positive_rate']
+                    rnn_fnr = result['rnn_results']['false_negnnive_rate']
                     rnn_fpr = result['rnn_results']['false_positive_rate']
                     
-                    logger.info(f"  GAT - F1: {gat_f1:.4f}, Acc: {gat_acc:.4f}, FNR: {gat_fnr:.4f}, FPR: {gat_fpr:.4f}")
+                    logger.info(f"  GNN - F1: {gnn_f1:.4f}, Acc: {gnn_acc:.4f}, FNR: {gnn_fnr:.4f}, FPR: {gnn_fpr:.4f}")
                     logger.info(f"  RNN - F1: {rnn_f1:.4f}, Acc: {rnn_acc:.4f}, FNR: {rnn_fnr:.4f}, FPR: {rnn_fpr:.4f}")
                 else:
                     logger.warning(f"  run {run_idx+1} failed")
@@ -220,18 +220,18 @@ class SimpleRQComparison:
             logger.info(f"Actual fault node count range: {summary['min_fault_count']}-{summary['max_fault_count']}")
             logger.info(f"Average fault node count: {summary['avg_fault_count']:.1f}")
             logger.info(f"Fault node count distribution: {summary['fault_counts']}")
-            logger.info(f"GAT average F1: {summary['avg_gat_f1']:.4f} ± {summary['std_gat_f1']:.4f}")
+            logger.info(f"GNN average F1: {summary['avg_gnn_f1']:.4f} ± {summary['std_gnn_f1']:.4f}")
             logger.info(f"RNN average F1: {summary['avg_rnn_f1']:.4f} ± {summary['std_rnn_f1']:.4f}")
-            logger.info(f"GAT average accuracy: {summary['avg_gat_acc']:.4f} ± {summary['std_gat_acc']:.4f}")
+            logger.info(f"GNN average accuracy: {summary['avg_gnn_acc']:.4f} ± {summary['std_gnn_acc']:.4f}")
             logger.info(f"RNN average accuracy: {summary['avg_rnn_acc']:.4f} ± {summary['std_rnn_acc']:.4f}")
-            logger.info(f"GAT average false negative rate: {summary['avg_gat_fnr']:.4f} ± {summary['std_gat_fnr']:.4f}")
-            logger.info(f"RNN average false negative rate: {summary['avg_rnn_fnr']:.4f} ± {summary['std_rnn_fnr']:.4f}")
-            logger.info(f"GAT average false positive rate: {summary['avg_gat_fpr']:.4f} ± {summary['std_gat_fpr']:.4f}")
+            logger.info(f"GNN average false negnnive rate: {summary['avg_gnn_fnr']:.4f} ± {summary['std_gnn_fnr']:.4f}")
+            logger.info(f"RNN average false negnnive rate: {summary['avg_rnn_fnr']:.4f} ± {summary['std_rnn_fnr']:.4f}")
+            logger.info(f"GNN average false positive rate: {summary['avg_gnn_fpr']:.4f} ± {summary['std_gnn_fpr']:.4f}")
             logger.info(f"RNN average false positive rate: {summary['avg_rnn_fpr']:.4f} ± {summary['std_rnn_fpr']:.4f}")
             
-            if summary['avg_gat_f1'] > summary['avg_rnn_f1']:
-                logger.info("Conclusion: GAT performs better")
-            elif summary['avg_rnn_f1'] > summary['avg_gat_f1']:
+            if summary['avg_gnn_f1'] > summary['avg_rnn_f1']:
+                logger.info("Conclusion: GNN performs better")
+            elif summary['avg_rnn_f1'] > summary['avg_gnn_f1']:
                 logger.info("Conclusion: RNN performs better")
             else:
                 logger.info("Conclusion: two models perform equally")
@@ -247,16 +247,16 @@ class SimpleRQComparison:
             return {}
         
         # extract all metrics
-        gat_f1_scores = [r['gat_results']['f1_score'] for r in runs]
-        gat_accuracies = [r['gat_results']['accuracy'] for r in runs]
-        gat_train_times = [r['gat_results']['train_time'] for r in runs]
-        gat_fnrs = [r['gat_results']['false_negative_rate'] for r in runs]
-        gat_fprs = [r['gat_results']['false_positive_rate'] for r in runs]
+        gnn_f1_scores = [r['gnn_results']['f1_score'] for r in runs]
+        gnn_accuracies = [r['gnn_results']['accuracy'] for r in runs]
+        gnn_train_times = [r['gnn_results']['train_time'] for r in runs]
+        gnn_fnrs = [r['gnn_results']['false_negnnive_rate'] for r in runs]
+        gnn_fprs = [r['gnn_results']['false_positive_rate'] for r in runs]
         
         rnn_f1_scores = [r['rnn_results']['f1_score'] for r in runs]
         rnn_accuracies = [r['rnn_results']['accuracy'] for r in runs]
         rnn_train_times = [r['rnn_results']['train_time'] for r in runs]
-        rnn_fnrs = [r['rnn_results']['false_negative_rate'] for r in runs]
+        rnn_fnrs = [r['rnn_results']['false_negnnive_rate'] for r in runs]
         rnn_fprs = [r['rnn_results']['false_positive_rate'] for r in runs]
         
         # extract fault node count information
@@ -264,16 +264,16 @@ class SimpleRQComparison:
         
         summary = {
             'total_runs': len(runs),
-            'avg_gat_f1': np.mean(gat_f1_scores),
-            'std_gat_f1': np.std(gat_f1_scores),
-            'avg_gat_acc': np.mean(gat_accuracies),
-            'std_gat_acc': np.std(gat_accuracies),
-            'avg_gat_time': np.mean(gat_train_times),
-            'std_gat_time': np.std(gat_train_times),
-            'avg_gat_fnr': np.mean(gat_fnrs),
-            'std_gat_fnr': np.std(gat_fnrs),
-            'avg_gat_fpr': np.mean(gat_fprs),
-            'std_gat_fpr': np.std(gat_fprs),
+            'avg_gnn_f1': np.mean(gnn_f1_scores),
+            'std_gnn_f1': np.std(gnn_f1_scores),
+            'avg_gnn_acc': np.mean(gnn_accuracies),
+            'std_gnn_acc': np.std(gnn_accuracies),
+            'avg_gnn_time': np.mean(gnn_train_times),
+            'std_gnn_time': np.std(gnn_train_times),
+            'avg_gnn_fnr': np.mean(gnn_fnrs),
+            'std_gnn_fnr': np.std(gnn_fnrs),
+            'avg_gnn_fpr': np.mean(gnn_fprs),
+            'std_gnn_fpr': np.std(gnn_fprs),
             'avg_rnn_f1': np.mean(rnn_f1_scores),
             'std_rnn_f1': np.std(rnn_f1_scores),
             'avg_rnn_acc': np.mean(rnn_accuracies),
@@ -284,11 +284,11 @@ class SimpleRQComparison:
             'std_rnn_fnr': np.std(rnn_fnrs),
             'avg_rnn_fpr': np.mean(rnn_fprs),
             'std_rnn_fpr': np.std(rnn_fprs),
-            'best_gat_f1': max(gat_f1_scores),
+            'best_gnn_f1': max(gnn_f1_scores),
             'best_rnn_f1': max(rnn_f1_scores),
-            'worst_gat_f1': min(gat_f1_scores),
+            'worst_gnn_f1': min(gnn_f1_scores),
             'worst_rnn_f1': min(rnn_f1_scores),
-            'gat_wins': sum(1 for i in range(len(gat_f1_scores)) if gat_f1_scores[i] > rnn_f1_scores[i]),
+            'gnn_wins': sum(1 for i in range(len(gnn_f1_scores)) if gnn_f1_scores[i] > rnn_f1_scores[i]),
             'fault_counts': fault_counts,
             'avg_fault_count': np.mean(fault_counts),
             'min_fault_count': min(fault_counts),
@@ -315,7 +315,7 @@ class SimpleRQComparison:
                 'experiment_name': run.get('experiment_name', ''),
                 'config': run.get('config', {}),
                 'fault_count': run.get('fault_count', 0),
-                'gat_results': run.get('gat_results', {}),
+                'gnn_results': run.get('gnn_results', {}),
                 'rnn_results': run.get('rnn_results', {})
             }
             json_data['runs'].append(json_run)
@@ -369,51 +369,51 @@ class SimpleRQComparison:
                 f.write(f"  Actual fault node count range: {summary['min_fault_count']}-{summary['max_fault_count']}\n")
                 f.write(f"  Average fault node count: {summary['avg_fault_count']:.1f}\n\n")
                 
-                f.write("GAT model results:\n")
-                f.write(f"  Average F1: {summary['avg_gat_f1']:.4f} ± {summary['std_gat_f1']:.4f}\n")
-                f.write(f"  Average accuracy: {summary['avg_gat_acc']:.4f} ± {summary['std_gat_acc']:.4f}\n")
-                f.write(f"  Average false negative rate: {summary['avg_gat_fnr']:.4f} ± {summary['std_gat_fnr']:.4f}\n")
-                f.write(f"  Average false positive rate: {summary['avg_gat_fpr']:.4f} ± {summary['std_gat_fpr']:.4f}\n\n")
+                f.write("GNN model results:\n")
+                f.write(f"  Average F1: {summary['avg_gnn_f1']:.4f} ± {summary['std_gnn_f1']:.4f}\n")
+                f.write(f"  Average accuracy: {summary['avg_gnn_acc']:.4f} ± {summary['std_gnn_acc']:.4f}\n")
+                f.write(f"  Average false negnnive rate: {summary['avg_gnn_fnr']:.4f} ± {summary['std_gnn_fnr']:.4f}\n")
+                f.write(f"  Average false positive rate: {summary['avg_gnn_fpr']:.4f} ± {summary['std_gnn_fpr']:.4f}\n\n")
                 
                 f.write("RNN model results:\n")
                 f.write(f"  Average F1: {summary['avg_rnn_f1']:.4f} ± {summary['std_rnn_f1']:.4f}\n")
                 f.write(f"  Average accuracy: {summary['avg_rnn_acc']:.4f} ± {summary['std_rnn_acc']:.4f}\n")
-                f.write(f"  Average false negative rate: {summary['avg_rnn_fnr']:.4f} ± {summary['std_rnn_fnr']:.4f}\n")
+                f.write(f"  Average false negnnive rate: {summary['avg_rnn_fnr']:.4f} ± {summary['std_rnn_fnr']:.4f}\n")
                 f.write(f"  Average false positive rate: {summary['avg_rnn_fpr']:.4f} ± {summary['std_rnn_fpr']:.4f}\n\n")
                 
                 f.write(f"Performance comparison:\n")
-                f.write(f"  GAT wins: {summary['gat_wins']}/{summary['total_runs']}\n")
+                f.write(f"  GNN wins: {summary['gnn_wins']}/{summary['total_runs']}\n")
                 
-                if summary['avg_gat_f1'] > summary['avg_rnn_f1']:
-                    f.write(f"  Conclusion: GAT performs better\n")
-                elif summary['avg_rnn_f1'] > summary['avg_gat_f1']:
+                if summary['avg_gnn_f1'] > summary['avg_rnn_f1']:
+                    f.write(f"  Conclusion: GNN performs better\n")
+                elif summary['avg_rnn_f1'] > summary['avg_gnn_f1']:
                     f.write(f"  Conclusion: RNN performs better\n")
                 else:
                     f.write(f"  Conclusion: two models perform equally\n")
                 
                 # detailed run results
                 f.write(f"\nDetailed run results:\n")
-                f.write(f"{'Run':<4} {'Fault count':<6} {'GAT_F1':<8} {'RNN_F1':<8} {'GAT_FNR':<9} {'GAT_FPR':<9} {'RNN_FNR':<9} {'RNN_FPR':<9}\n")
+                f.write(f"{'Run':<4} {'Fault count':<6} {'GNN_F1':<8} {'RNN_F1':<8} {'GNN_FNR':<9} {'GNN_FPR':<9} {'RNN_FNR':<9} {'RNN_FPR':<9}\n")
                 f.write("-" * 70 + "\n")
                 
                 for i, run in enumerate(experiment_results['runs'], 1):
                     fault_count = run.get('fault_count', 0)
-                    gat_f1 = run['gat_results']['f1_score']
+                    gnn_f1 = run['gnn_results']['f1_score']
                     rnn_f1 = run['rnn_results']['f1_score']
-                    gat_fnr = run['gat_results']['false_negative_rate']
-                    gat_fpr = run['gat_results']['false_positive_rate']
-                    rnn_fnr = run['rnn_results']['false_negative_rate']
+                    gnn_fnr = run['gnn_results']['false_negnnive_rate']
+                    gnn_fpr = run['gnn_results']['false_positive_rate']
+                    rnn_fnr = run['rnn_results']['false_negnnive_rate']
                     rnn_fpr = run['rnn_results']['false_positive_rate']
                     
-                    f.write(f"{i:<4} {fault_count:<6} {gat_f1:<8.4f} {rnn_f1:<8.4f} "
-                           f"{gat_fnr:<9.4f} {gat_fpr:<9.4f} {rnn_fnr:<9.4f} {rnn_fpr:<9.4f}\n")
+                    f.write(f"{i:<4} {fault_count:<6} {gnn_f1:<8.4f} {rnn_f1:<8.4f} "
+                           f"{gnn_fnr:<9.4f} {gnn_fpr:<9.4f} {rnn_fnr:<9.4f} {rnn_fpr:<9.4f}\n")
             
             f.write(f"\nTotal experiment time: {metadata.get('total_experiment_time', 0):.1f} seconds\n")
 
 
 def main():
     """Main function"""
-    parser = argparse.ArgumentParser(description='RQ1: GAT vs RNN performance comparison')
+    parser = argparse.ArgumentParser(description='RQ1: GNN vs RNN performance comparison')
     
     # graph configuration parameters
     parser.add_argument('--graph_type', type=str, default='bc', 
@@ -429,11 +429,11 @@ def main():
     parser.add_argument('--seed', type=int, default=42, help='Random seed')
     parser.add_argument('--n_jobs', type=int, default=None, help='Number of parallel processes')
     
-    # GAT parameters
-    parser.add_argument('--gat_hidden_dim', type=int, default=64, help='GAT hidden layer dimension')
-    parser.add_argument('--gat_num_layers', type=int, default=2, help='GAT number of layers')
-    parser.add_argument('--gat_heads', type=int, default=8, help='GAT number of attention heads')
-    parser.add_argument('--gat_batch_size', type=int, default=16, help='GAT batch size')
+    # GNN parameters
+    parser.add_argument('--gnn_hidden_dim', type=int, default=64, help='GNN hidden layer dimension')
+    parser.add_argument('--gnn_num_layers', type=int, default=2, help='GNN number of layers')
+    parser.add_argument('--gnn_heads', type=int, default=8, help='GNN number of attention heads')
+    parser.add_argument('--gnn_batch_size', type=int, default=16, help='GNN batch size')
     
     # RNN parameters
     parser.add_argument('--rnn_hidden_dims', type=int, nargs='+', default=[64, 32], 

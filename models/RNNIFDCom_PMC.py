@@ -55,7 +55,7 @@ class RNNIFDCom_PMC(nn.Module):
         
         self.network = nn.Sequential(*layers)
         
-        # Initialize weights according to back-propagation method from the paper
+        # Initialize weights according to back-propagnnion method from the paper
         self._initialize_weights()
     
     def _calculate_hidden_dims(self, n):
@@ -95,7 +95,7 @@ class RNNIFDCom_PMC(nn.Module):
         return [neurons_per_layer] * num_layers
     
     def _initialize_weights(self):
-        """Initialize weights according to back-propagation method from the paper"""
+        """Initialize weights according to back-propagnnion method from the paper"""
         for module in self.modules():
             if isinstance(module, nn.Linear):
                 nn.init.xavier_uniform_(module.weight)
@@ -104,7 +104,7 @@ class RNNIFDCom_PMC(nn.Module):
     
     def forward(self, x):
         """
-        Forward propagation
+        Forward propagnnion
         
         Args:
             x (Tensor): Input tensor, shape (batch_size, input_dim)

@@ -1,10 +1,10 @@
 version: '3.8'
 
 services:
-  faultgat:
-    image: ksx/faultgat:latest
+  faultgnn:
+    image: ksx/faultgnn:latest
     build: .
-    container_name: faultgat
+    container_name: faultgnn
     volumes:
       # Mount results directories to host for persistence
       - ./results_RQ1:/app/results_RQ1
@@ -19,7 +19,7 @@ services:
 
   # Service for running specific experiments
   rq1:
-    image: ksx/faultgat:latest
+    image: ksx/faultgnn:latest
     build: .
     volumes:
       - ./results_RQ1:/app/results_RQ1
@@ -29,7 +29,7 @@ services:
       - PYTHONPATH=/app
 
   rq2:
-    image: ksx/faultgat:latest
+    image: ksx/faultgnn:latest
     build: .
     volumes:
       - ./results_RQ2:/app/results_RQ2
@@ -39,7 +39,7 @@ services:
       - PYTHONPATH=/app
 
   rq3:
-    image: ksx/faultgat:latest
+    image: ksx/faultgnn:latest
     build: .
     volumes:
       - ./results_RQ3:/app/results_RQ3

@@ -17,7 +17,7 @@ import gc
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from dataset_generator import UnifiedDatasetGenerator, UnifiedDatasetLoader, generate_dataset_from_config, _cleanup_global_pool
-from models import FaultGAT, RNNIFDCom_PMC
+from models import FaultGNN, RNNIFDCom_PMC
 from logging_config import get_logger, init_default_logging
 
 # Initialize logging configuration
@@ -35,31 +35,31 @@ def cleanup_global_resources():
 # =============================================
 
 
-def apply_partial_symptoms_to_gat_data(gat_data_list, missing_ratio, missing_type, seed=42):
+def apply_partial_symptoms_to_gnn_data(gnn_data_list, missing_ratio, missing_type, seed=42):
     """
-    Apply partial symptom processing to GAT test data
+    Apply partial symptom processing to GNN test data
     
     Args:
-        gat_data_list: GAT data list
+        gnn_data_list: GNN data list
         missing_ratio: Missing ratio
         missing_type: Missing type ('node_disable')
         seed: Random seed
         
     Returns:
-        tuple: (Processed GAT data list, disabled node indices dictionary {data_idx: disabled_node_indices})
+        tuple: (Processed GNN data list, disabled node indices dictionary {data_idx: disabled_node_indices})
     """
     import torch
     import numpy as np
     from copy import deepcopy
     
     if missing_ratio <= 0:
-        return gat_data_list, {}
+        return gnn_data_list, {}
     
     rng = np.random.default_rng(seed)
     processed_data = []
     disabled_nodes_dict = {}
     
-    for data_idx, data in enumerate(gat_data_list):
+    for data_idx, data in enumerate(gnn_data_list):
         data_copy = deepcopy(data)
         
         if missing_type == 'node_disable':
@@ -79,7 +79,7 @@ def apply_partial_symptoms_to_gat_data(gat_data_list, missing_ratio, missing_typ
         
         processed_data.append(data_copy)
     
-    logger.info(f"Applied {missing_type} partial symptom processing to {len(processed_data)} GAT graphs")
+    logger.info(f"Applied {missing_type} partial symptom processing to {len(processed_data)} GNN graphs")
     return processed_data, disabled_nodes_dict
 
 
@@ -149,7 +149,7 @@ class FocalLoss(nn.Module):
         Initialize Focal Loss, used to handle class imbalance problem
         
         Args:
-            alpha: Weight factor, used to balance positive and negative samples
+            alpha: Weight factor, used to balance positive and negnnive samples
             gamma: Focus parameter, increase the attention to difficult-to-classify samples
         """
         super().__init__()
@@ -171,10 +171,10 @@ class FocalLoss(nn.Module):
         return loss.mean()
 
 
-def train_gat_model(train_loader, val_loader, input_dim, hidden_dim=64, 
+def train_gnn_model(train_loader, val_loader, input_dim, hidden_dim=64, 
                    num_layers=2, heads=8, epochs=100, lr=0.002, device='cpu'):
-    """Train GAT model - optimized for large graphs"""
-    logger.info("Starting to train GAT model...")
+    """Train GNN model - optimized for large graphs"""
+    logger.info("Starting to train GNN model...")
     
     # ========== Performance optimization: model parameter adjustment for large graphs ==========
     # For large graphs, reduce model parameters to save memory
@@ -186,7 +186,7 @@ def train_gat_model(train_loader, val_loader, input_dim, hidden_dim=64,
     # =============================================
     
     # ========== Core functionality: model initialization ==========
-    model = FaultGAT(input_dim=input_dim, hidden_dim=hidden_dim, 
+    model = FaultGNN(input_dim=input_dim, hidden_dim=hidden_dim, 
                    num_layers=num_layers, heads=heads).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = FocalLoss(alpha=0.25, gamma=2.0).to(device)
@@ -221,19 +221,19 @@ def train_gat_model(train_loader, val_loader, input_dim, hidden_dim=64,
             try:
                 # ========================================
                 
-                # === Core functionality: forward propagation and backward propagation ===
+                # === Core functionality: forward propagnnion and backward propagnnion ===
                 data = data.to(device)
                 optimizer.zero_grad()
                 
-                # Forward propagation
+                # Forward propagnnion
                 out = model(data.x, data.edge_index)
                 loss = criterion(out, data.y)
                 
                 if torch.isnan(loss):
-                    logger.warning(f"GAT第 {epoch+1} 轮第 {batch_count+1} 批次损失为NaN，跳过此批次")
+                    logger.warning(f"GNN第 {epoch+1} 轮第 {batch_count+1} 批次损失为NaN，跳过此批次")
                     continue
                     
-                # Backward propagation
+                # Backward propagnnion
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
                 optimizer.step()
@@ -250,7 +250,7 @@ def train_gat_model(train_loader, val_loader, input_dim, hidden_dim=64,
                 # ========== Performance optimization: progress display and memory management ==========
                 # Show progress when training large graphs
                 if show_progress and batch_count % max(1, len(train_loader) // 4) == 0:
-                    logger.info(f"  GAT {epoch+1}th epoch training progress: {batch_count}/{len(train_loader)} batches")
+                    logger.info(f"  GNN {epoch+1}th epoch training progress: {batch_count}/{len(train_loader)} batches")
                 
                 # Clean up GPU cache (if using GPU)
                 if device.type == 'cuda':
@@ -260,7 +260,7 @@ def train_gat_model(train_loader, val_loader, input_dim, hidden_dim=64,
             # ========== Performance optimization: memory error handling ==========
             except RuntimeError as e:
                 if "out of memory" in str(e):
-                    logger.error(f"GAT training out of memory: {e}")
+                    logger.error(f"GNN training out of memory: {e}")
                     logger.error("Suggestions: 1) Decrease batch size 2) Use CPU training 3) Decrease model parameters")
                     # Clean up memory and continue
                     if device.type == 'cuda':
@@ -273,7 +273,7 @@ def train_gat_model(train_loader, val_loader, input_dim, hidden_dim=64,
         
         # ========== Performance optimization: data validation ==========
         if len(train_preds) == 0:
-            logger.warning(f"GAT {epoch+1}th epoch has no valid training data")
+            logger.warning(f"GNN {epoch+1}th epoch has no valid training data")
             continue
         # =====================================
             
@@ -292,7 +292,7 @@ def train_gat_model(train_loader, val_loader, input_dim, hidden_dim=64,
             for data in val_loader:
                 # ========== Performance optimization: validation stage memory error handling ==========
                 try:
-                    # === Core functionality: validation forward propagation ===
+                    # === Core functionality: validation forward propagnnion ===
                     data = data.to(device)
                     out = model(data.x, data.edge_index)
                     preds = out.argmax(dim=1)
@@ -310,7 +310,7 @@ def train_gat_model(train_loader, val_loader, input_dim, hidden_dim=64,
                         
                 except RuntimeError as e:
                     if "out of memory" in str(e):
-                        logger.warning(f"GAT validation out of memory, skipping this batch: {e}")
+                        logger.warning(f"GNN validation out of memory, skipping this batch: {e}")
                         if device.type == 'cuda':
                             torch.cuda.empty_cache()
                         gc.collect()
@@ -321,7 +321,7 @@ def train_gat_model(train_loader, val_loader, input_dim, hidden_dim=64,
         
         # ========== Performance optimization: validation data check ==========
         if len(val_preds) == 0:
-            logger.warning(f"GAT {epoch+1}th epoch has no valid validation data")
+            logger.warning(f"GNN {epoch+1}th epoch has no valid validation data")
             val_f1 = 0
         else:
             val_f1 = f1_score(val_true, val_preds, zero_division=0)
@@ -339,7 +339,7 @@ def train_gat_model(train_loader, val_loader, input_dim, hidden_dim=64,
         # Calculate average loss
         avg_loss = train_loss / max(1, batch_count)
         
-        logger.info(f'GAT {epoch+1}th epoch, training loss: {avg_loss:.4f}, '
+        logger.info(f'GNN {epoch+1}th epoch, training loss: {avg_loss:.4f}, '
                    f'training F1: {train_f1:.4f}, validation F1: {val_f1:.4f}, prediction distribution: {pred_counts}, '
                    f'confusion matrix: \n{cm}')
         # ====================================
@@ -353,7 +353,7 @@ def train_gat_model(train_loader, val_loader, input_dim, hidden_dim=64,
             early_stop_counter += 1
         
         if early_stop_counter >= early_stop_patience:
-            logger.info(f'GAT Early stopping triggered after {epoch+1} epochs')
+            logger.info(f'GNN Early stopping triggered after {epoch+1} epochs')
             break
         
         scheduler.step(val_f1)
@@ -368,7 +368,7 @@ def train_gat_model(train_loader, val_loader, input_dim, hidden_dim=64,
     
     # === Core functionality: restore best model ===
     model.load_state_dict(best_model_state)
-    logger.info(f"GAT training completed, best validation F1: {best_val_f1:.4f}")
+    logger.info(f"GNN training completed, best validation F1: {best_val_f1:.4f}")
     return model, train_f1_history, val_f1_history
     # ===========================
 
@@ -465,12 +465,12 @@ def train_rnn_model(X_train, y_train, X_val, y_val, hidden_dims=[64, 32],
     return model, train_f1_history, val_f1_history
 
 
-def evaluate_gat_model(model, test_loader, device='cpu', disabled_nodes_dict=None):
+def evaluate_gnn_model(model, test_loader, device='cpu', disabled_nodes_dict=None):
     """
-    Evaluate GAT model
+    Evaluate GNN model
     
     Args:
-        model: GAT model
+        model: GNN model
         test_loader: test data loader
         device: device
         disabled_nodes_dict: dictionary of disabled nodes {data_idx: disabled_node_indices}
@@ -514,7 +514,7 @@ def evaluate_gat_model(model, test_loader, device='cpu', disabled_nodes_dict=Non
             'f1_score': 0.0,
             'precision': 0.0,
             'recall': 0.0,
-            'false_negative_rate': 0.0,
+            'false_negnnive_rate': 0.0,
             'false_positive_rate': 0.0,
             'confusion_matrix': [[0, 0], [0, 0]]
         }
@@ -525,28 +525,28 @@ def evaluate_gat_model(model, test_loader, device='cpu', disabled_nodes_dict=Non
     recall = recall_score(true, preds, zero_division=0)
     cm = confusion_matrix(true, preds)
     
-    # === Core functionality: calculate false negative rate and false positive rate ===
+    # === Core functionality: calculate false negnnive rate and false positive rate ===
     if cm.shape == (2, 2):
         tn, fp, fn, tp = cm.ravel()
-        false_negative_rate = fn / (fn + tp) if (fn + tp) > 0 else 0  # False negative rate = 1 - recall
+        false_negnnive_rate = fn / (fn + tp) if (fn + tp) > 0 else 0  # False negnnive rate = 1 - recall
         false_positive_rate = fp / (fp + tn) if (fp + tn) > 0 else 0  # False positive rate
     else:
-        false_negative_rate = 0
+        false_negnnive_rate = 0
         false_positive_rate = 0
     
     total_evaluated_nodes = len(preds)
-    logger.info(f'GAT test accuracy: {accuracy:.4f}, test F1: {f1:.4f}')
-    logger.info(f'GAT precision: {precision:.4f}, recall: {recall:.4f}')
-    logger.info(f'GAT false negative rate: {false_negative_rate:.4f}, false positive rate: {false_positive_rate:.4f}')
-    logger.info(f'GAT evaluated nodes: {total_evaluated_nodes}')
-    logger.info(f'GAT test confusion matrix: \n{cm}')
+    logger.info(f'GNN test accuracy: {accuracy:.4f}, test F1: {f1:.4f}')
+    logger.info(f'GNN precision: {precision:.4f}, recall: {recall:.4f}')
+    logger.info(f'GNN false negnnive rate: {false_negnnive_rate:.4f}, false positive rate: {false_positive_rate:.4f}')
+    logger.info(f'GNN evaluated nodes: {total_evaluated_nodes}')
+    logger.info(f'GNN test confusion matrix: \n{cm}')
     
     return {
         'accuracy': accuracy,
         'f1_score': f1,
         'precision': precision,
         'recall': recall,
-        'false_negative_rate': false_negative_rate,
+        'false_negnnive_rate': false_negnnive_rate,
         'false_positive_rate': false_positive_rate,
         'confusion_matrix': cm.tolist(),
         'evaluated_nodes': total_evaluated_nodes
@@ -573,7 +573,7 @@ def evaluate_rnn_model(model, X_test, y_test, device='cpu', disabled_nodes=None)
         X_test_tensor = torch.FloatTensor(X_test).to(device)
         out = model(X_test_tensor)
         
-        # === Core functionality: predict using fixed threshold 0.5 (same as GAT) ===
+        # === Core functionality: predict using fixed threshold 0.5 (same as GNN) ===
         preds = torch.sigmoid(out) > 0.5
         preds = preds.float().cpu().numpy()
         
@@ -605,7 +605,7 @@ def evaluate_rnn_model(model, X_test, y_test, device='cpu', disabled_nodes=None)
             'f1_score': 0.0,
             'precision': 0.0,
             'recall': 0.0,
-            'false_negative_rate': 0.0,
+            'false_negnnive_rate': 0.0,
             'false_positive_rate': 0.0,
             'confusion_matrix': [[0, 0], [0, 0]]
         }
@@ -631,7 +631,7 @@ def evaluate_rnn_model(model, X_test, y_test, device='cpu', disabled_nodes=None)
         'f1_score': f1,
         'precision': precision,
         'recall': recall,
-        'false_negative_rate': fnr,
+        'false_negnnive_rate': fnr,
         'false_positive_rate': fpr,
         'confusion_matrix': cm
     }
@@ -680,7 +680,7 @@ def get_or_generate_dataset(graph_type, n, k=None, fault_rate=None, fault_count=
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         dataset_dir += f"_{timestamp}"
     
-    required_files = ['raw_data.pkl', 'gat_data.pt', 'rnn_data.npz', 'metadata.pkl']
+    required_files = ['raw_data.pkl', 'gnn_data.pt', 'rnn_data.npz', 'metadata.pkl']
     dataset_exists = not force_regenerate and all(
         os.path.exists(os.path.join(dataset_dir, file)) 
         for file in required_files
@@ -693,11 +693,11 @@ def get_or_generate_dataset(graph_type, n, k=None, fault_rate=None, fault_count=
             
             metadata = dataset['metadata']
             expected_graphs = metadata.get('num_graphs', 0)
-            actual_gat_graphs = len(dataset['gat_data'])
+            actual_gnn_graphs = len(dataset['gnn_data'])
             actual_rnn_samples = dataset['rnn_data'][0].shape[0]
             
             logger.info(f"Dataset validation: expected {expected_graphs} graphs, "
-                       f"actual GAT={actual_gat_graphs} graphs, RNNIFDCOM={actual_rnn_samples} samples")
+                       f"actual GNN={actual_gnn_graphs} graphs, RNNIFDCOM={actual_rnn_samples} samples")
             
             params_match = (
                 metadata.get('graph_type') == graph_type and
@@ -709,7 +709,7 @@ def get_or_generate_dataset(graph_type, n, k=None, fault_rate=None, fault_count=
                 metadata.get('num_rounds') == num_rounds
             )
             
-            if params_match and actual_gat_graphs > 0:
+            if params_match and actual_gnn_graphs > 0:
                 logger.info("✓ Dataset parameters match and complete, using existing dataset")
                 return dataset
             else:
@@ -751,17 +751,17 @@ def get_or_generate_dataset(graph_type, n, k=None, fault_rate=None, fault_count=
         generator.cleanup_resources()
 
 
-def plot_comparison_curves(gat_train_f1, gat_val_f1, rnn_train_f1, rnn_val_f1, save_path):
-    """Plot GAT and RNNIFDCOM learning curves comparison"""
+def plot_comparison_curves(gnn_train_f1, gnn_val_f1, rnn_train_f1, rnn_val_f1, save_path):
+    """Plot GNN and RNNIFDCOM learning curves comparison"""
     plt.figure(figsize=(15, 5))
     
-    # GAT learning curve
+    # GNN learning curve
     plt.subplot(1, 3, 1)
-    plt.plot(gat_train_f1, label='GAT Training F1', color='blue')
-    plt.plot(gat_val_f1, label='GAT Validation F1', color='lightblue')
+    plt.plot(gnn_train_f1, label='GNN Training F1', color='blue')
+    plt.plot(gnn_val_f1, label='GNN Validation F1', color='lightblue')
     plt.xlabel('Epoch')
     plt.ylabel('F1 Score')
-    plt.title('GAT Learning Curves')
+    plt.title('GNN Learning Curves')
     plt.legend()
     plt.grid(True)
     
@@ -777,7 +777,7 @@ def plot_comparison_curves(gat_train_f1, gat_val_f1, rnn_train_f1, rnn_val_f1, s
     
     # Comparison chart
     plt.subplot(1, 3, 3)
-    plt.plot(gat_val_f1, label='GAT Validation F1', color='blue')
+    plt.plot(gnn_val_f1, label='GNN Validation F1', color='blue')
     plt.plot(rnn_val_f1, label='RNNIFDCOM Validation F1', color='red')
     plt.xlabel('Epoch')
     plt.ylabel('F1 Score')
@@ -861,44 +861,44 @@ def run_single_experiment(config, args, base_output_dir="results"):
         )
         # ====================================
         
-        # === Core functionality: prepare GAT data ===
-        gat_train = split_data['gat']['train']
-        gat_val = split_data['gat']['val']
-        gat_test = split_data['gat']['test']
+        # === Core functionality: prepare GNN data ===
+        gnn_train = split_data['gnn']['train']
+        gnn_val = split_data['gnn']['val']
+        gnn_test = split_data['gnn']['test']
         
-        # === Core functionality: apply partial symptoms to GAT data ===
+        # === Core functionality: apply partial symptoms to GNN data ===
         if missing_ratio > 0:
             logger.info(f"应用部分症状处理: {missing_type}, 缺失比例: {missing_ratio*100:.1f}%")
-            gat_test, disabled_nodes_dict = apply_partial_symptoms_to_gat_data(gat_test, missing_ratio, missing_type, args.seed)
+            gnn_test, disabled_nodes_dict = apply_partial_symptoms_to_gnn_data(gnn_test, missing_ratio, missing_type, args.seed)
         else:
             disabled_nodes_dict = None
 
-        if len(gat_train) > 0:
-            sample_graph = gat_train[0]
+        if len(gnn_train) > 0:
+            sample_graph = gnn_train[0]
             num_nodes = sample_graph.x.shape[0]
             num_edges = sample_graph.edge_index.shape[1]
             
            
             if num_nodes > 1000:  # large graph
                 smart_batch_size = 1
-                logger.info(f"Detected large graph ({num_nodes} nodes, {num_edges} edges), setting GAT batch size to 1")
+                logger.info(f"Detected large graph ({num_nodes} nodes, {num_edges} edges), setting GNN batch size to 1")
             elif num_nodes > 500:  # medium graph
                 smart_batch_size = 2
-                logger.info(f"Detected medium graph ({num_nodes} nodes, {num_edges} edges), setting GAT batch size to 2")
+                logger.info(f"Detected medium graph ({num_nodes} nodes, {num_edges} edges), setting GNN batch size to 2")
             elif num_nodes > 100:  # small graph
-                smart_batch_size = min(4, args.gat_batch_size)
-                logger.info(f"Detected small graph ({num_nodes} nodes, {num_edges} edges), setting GAT batch size to {smart_batch_size}")
+                smart_batch_size = min(4, args.gnn_batch_size)
+                logger.info(f"Detected small graph ({num_nodes} nodes, {num_edges} edges), setting GNN batch size to {smart_batch_size}")
             else:  # tiny graph
-                smart_batch_size = args.gat_batch_size
-                logger.info(f"Detected tiny graph ({num_nodes} nodes, {num_edges} edges), using default GAT batch size {smart_batch_size}")
+                smart_batch_size = args.gnn_batch_size
+                logger.info(f"Detected tiny graph ({num_nodes} nodes, {num_edges} edges), using default GNN batch size {smart_batch_size}")
         else:
-            smart_batch_size = args.gat_batch_size
+            smart_batch_size = args.gnn_batch_size
         # =============================================
         
         # === Core functionality: create data loader ===
-        train_loader = DataLoader(gat_train, batch_size=smart_batch_size, shuffle=True)
-        val_loader = DataLoader(gat_val, batch_size=smart_batch_size, shuffle=False)
-        test_loader = DataLoader(gat_test, batch_size=smart_batch_size, shuffle=False)
+        train_loader = DataLoader(gnn_train, batch_size=smart_batch_size, shuffle=True)
+        val_loader = DataLoader(gnn_val, batch_size=smart_batch_size, shuffle=False)
+        test_loader = DataLoader(gnn_test, batch_size=smart_batch_size, shuffle=False)
         # =========================================
         
         # === Core functionality: prepare RNN data ===
@@ -925,26 +925,26 @@ def run_single_experiment(config, args, base_output_dir="results"):
         else:
             disabled_nodes = set()
         
-        input_dim = gat_train[0].x.shape[1]
+        input_dim = gnn_train[0].x.shape[1]
         
-        logger.info(f"Dataset statistics: GAT training={len(gat_train)}, RNNIFDCOM training={len(X_train)}")
-        logger.info(f"Input dimension: GAT={input_dim}, RNNIFDCOM={X_train.shape[1]}")
-        logger.info(f"Smart batch size: GAT={smart_batch_size} (original setting={args.gat_batch_size})")  # 性能优化信息
+        logger.info(f"Dataset statistics: GNN training={len(gnn_train)}, RNNIFDCOM training={len(X_train)}")
+        logger.info(f"Input dimension: GNN={input_dim}, RNNIFDCOM={X_train.shape[1]}")
+        logger.info(f"Smart batch size: GNN={smart_batch_size} (original setting={args.gnn_batch_size})")  # 性能优化信息
         # ====================================
         
-        # === Core functionality: train GAT model ===
-        logger.info("Training GAT model...")
-        gat_start_time = time.time()
-        gat_model, gat_train_f1, gat_val_f1 = train_gat_model(
+        # === Core functionality: train GNN model ===
+        logger.info("Training GNN model...")
+        gnn_start_time = time.time()
+        gnn_model, gnn_train_f1, gnn_val_f1 = train_gnn_model(
             train_loader, val_loader, input_dim,
-            hidden_dim=args.gat_hidden_dim,
-            num_layers=args.gat_num_layers,
-            heads=args.gat_heads,
+            hidden_dim=args.gnn_hidden_dim,
+            num_layers=args.gnn_num_layers,
+            heads=args.gnn_heads,
             epochs=args.epochs,
             lr=args.lr,
             device=device
         )
-        gat_train_time = time.time() - gat_start_time
+        gnn_train_time = time.time() - gnn_start_time
         # ========================================
         
         # === Core functionality: train RNNIFDCOM model ===
@@ -961,21 +961,21 @@ def run_single_experiment(config, args, base_output_dir="results"):
         # ============================================
         
         # === Core functionality: evaluate model ===
-        gat_results = evaluate_gat_model(gat_model, test_loader, device, disabled_nodes_dict)
+        gnn_results = evaluate_gnn_model(gnn_model, test_loader, device, disabled_nodes_dict)
         rnn_results = evaluate_rnn_model(rnn_model, X_test, y_test, device, disabled_nodes)
         # ====================================
         
         # === Core functionality: plot comparison chart ===
         plot_comparison_curves(
-            gat_train_f1, gat_val_f1, rnn_train_f1, rnn_val_f1,
+            gnn_train_f1, gnn_val_f1, rnn_train_f1, rnn_val_f1,
             os.path.join(exp_output_dir, f'{exp_name}_comparison.png')
         )
         # ======================================
         
         # === Core functionality: save experiment results ===
         # merge training time information
-        gat_results['train_time'] = gat_train_time
-        gat_results['best_val_f1'] = max(gat_val_f1) if gat_val_f1 else 0
+        gnn_results['train_time'] = gnn_train_time
+        gnn_results['best_val_f1'] = max(gnn_val_f1) if gnn_val_f1 else 0
         
         rnn_results['train_time'] = rnn_train_time
         rnn_results['best_val_f1'] = max(rnn_val_f1) if rnn_val_f1 else 0
@@ -983,18 +983,18 @@ def run_single_experiment(config, args, base_output_dir="results"):
         results = {
             'experiment_name': exp_name,
             'config': config,
-            'gat_results': gat_results,
+            'gnn_results': gnn_results,
             'rnn_results': rnn_results,
             'dataset_info': {
-                'num_graphs': len(gat_train) + len(gat_val) + len(gat_test),
-                'gat_samples': len(gat_train) + len(gat_val) + len(gat_test),
+                'num_graphs': len(gnn_train) + len(gnn_val) + len(gnn_test),
+                'gnn_samples': len(gnn_train) + len(gnn_val) + len(gnn_test),
                 'rnn_samples': len(X_train) + len(X_val) + len(X_test)
             }
         }
         
         # output results
         logger.info(f"Experiment {exp_name} completed:")
-        logger.info(f"  GAT - accuracy: {gat_results['accuracy']:.4f}, F1: {gat_results['f1_score']:.4f}, time: {gat_train_time:.1f}s")
+        logger.info(f"  GNN - accuracy: {gnn_results['accuracy']:.4f}, F1: {gnn_results['f1_score']:.4f}, time: {gnn_train_time:.1f}s")
         logger.info(f"  RNNIFDCOM - accuracy: {rnn_results['accuracy']:.4f}, F1: {rnn_results['f1_score']:.4f}, time: {rnn_train_time:.1f}s")
         
         # save detailed results
@@ -1002,13 +1002,13 @@ def run_single_experiment(config, args, base_output_dir="results"):
         with open(result_file, 'w') as f:
             f.write(f"Experiment: {exp_name}\n")
             f.write(f"Configuration: {config}\n\n")
-            f.write(f"GAT results: accuracy={gat_results['accuracy']:.4f}, F1={gat_results['f1_score']:.4f}, ")
-            f.write(f"precision={gat_results['precision']:.4f}, recall={gat_results['recall']:.4f}, ")
-            f.write(f"false negative rate={gat_results['false_negative_rate']:.4f}, false positive rate={gat_results['false_positive_rate']:.4f}, ")
-            f.write(f"time={gat_train_time:.1f}s\n")
+            f.write(f"GNN results: accuracy={gnn_results['accuracy']:.4f}, F1={gnn_results['f1_score']:.4f}, ")
+            f.write(f"precision={gnn_results['precision']:.4f}, recall={gnn_results['recall']:.4f}, ")
+            f.write(f"false negnnive rate={gnn_results['false_negnnive_rate']:.4f}, false positive rate={gnn_results['false_positive_rate']:.4f}, ")
+            f.write(f"time={gnn_train_time:.1f}s\n")
             f.write(f"RNNIFDCOM results: accuracy={rnn_results['accuracy']:.4f}, F1={rnn_results['f1_score']:.4f}, ")
             f.write(f"precision={rnn_results['precision']:.4f}, recall={rnn_results['recall']:.4f}, ")
-            f.write(f"false negative rate={rnn_results['false_negative_rate']:.4f}, false positive rate={rnn_results['false_positive_rate']:.4f}, ")
+            f.write(f"false negnnive rate={rnn_results['false_negnnive_rate']:.4f}, false positive rate={rnn_results['false_positive_rate']:.4f}, ")
             f.write(f"time={rnn_train_time:.1f}s\n")
         # ========================================
         
@@ -1021,7 +1021,7 @@ def run_single_experiment(config, args, base_output_dir="results"):
             'experiment_name': exp_name,
             'config': config,
             'error': str(e),
-            'gat_results': None,
+            'gnn_results': None,
             'rnn_results': None
         }
     # ============================
@@ -1035,7 +1035,7 @@ def run_single_experiment(config, args, base_output_dir="results"):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Unified comparison experiment: GAT vs RNNIFDCOM')
+    parser = argparse.ArgumentParser(description='Unified comparison experiment: GNN vs RNNIFDCOM')
     
     # experiment parameters
     parser.add_argument('--graph_type', type=str, default='bc', help='Graph type')
@@ -1048,11 +1048,11 @@ def main():
     parser.add_argument('--num_graphs', type=int, default=1000, help='Number of graphs to generate')
     parser.add_argument('--n_jobs', type=int, default=None, help='Number of parallel processes')
     
-    # GAT parameters
-    parser.add_argument('--gat_hidden_dim', type=int, default=64, help='GAT hidden layer dimension')
-    parser.add_argument('--gat_num_layers', type=int, default=2, help='GAT number of layers')
-    parser.add_argument('--gat_heads', type=int, default=8, help='GAT number of attention heads')
-    parser.add_argument('--gat_batch_size', type=int, default=16, help='GAT batch size')
+    # GNN parameters
+    parser.add_argument('--gnn_hidden_dim', type=int, default=64, help='GNN hidden layer dimension')
+    parser.add_argument('--gnn_num_layers', type=int, default=2, help='GNN number of layers')
+    parser.add_argument('--gnn_heads', type=int, default=8, help='GNN number of attention heads')
+    parser.add_argument('--gnn_batch_size', type=int, default=16, help='GNN batch size')
     
     # RNNIFDCOM parameters
     parser.add_argument('--rnn_hidden_dims', type=int, nargs='+', default=[64, 32], help='RNNIFDCOM hidden layer dimension')
@@ -1076,7 +1076,7 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
     
     logger.info("=" * 80)
-    logger.info("Unified comparison experiment: GAT vs RNNIFDCOM")
+    logger.info("Unified comparison experiment: GNN vs RNNIFDCOM")
     logger.info("=" * 80)
     
     # run single experiment
