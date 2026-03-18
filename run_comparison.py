@@ -17,7 +17,7 @@ import gc
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from dataset_generator import UnifiedDatasetGenerator, UnifiedDatasetLoader, generate_dataset_from_config, _cleanup_global_pool
-from models import FaultGNN, RNNIFDCom_PMC
+from models import FaultGNN, RNNIFDCom_PMC, evaluate_fifpdpmc
 from logging_config import get_logger, init_default_logging
 
 # Initialize logging configuration
@@ -963,6 +963,26 @@ def run_single_experiment(config, args, base_output_dir="results"):
         # === Core functionality: evaluate model ===
         gnn_results = evaluate_gnn_model(gnn_model, test_loader, device, disabled_nodes_dict)
         rnn_results = evaluate_rnn_model(rnn_model, X_test, y_test, device, disabled_nodes)
+
+        # === Core functionality: evaluate FIFPDPMC (traditional baseline) ===
+        # FIFPDPMC uses raw syndrome data; when missing_ratio > 0, run on full data for reference
+        raw_data = dataset['raw_data']
+        if 'metadata' not in raw_data and 'metadata' in dataset:
+            raw_data = {**raw_data, 'metadata': dataset['metadata']}
+        fifpdpmc_start_time = time.time()
+        fifpdpmc_results = evaluate_fifpdpmc(
+            raw_data,
+            num_stages=args.num_rounds,
+            train_ratio=0.7,
+            val_ratio=0.15,
+            test_ratio=0.15,
+            seed=args.seed,
+        )
+        fifpdpmc_time = time.time() - fifpdpmc_start_time
+        fifpdpmc_results['train_time'] = fifpdpmc_time  # No training, inference time only
+        logger.info(f"FIFPDPMC - accuracy: {fifpdpmc_results['accuracy']:.4f}, F1: {fifpdpmc_results['f1_score']:.4f}, "
+                   f"precision: {fifpdpmc_results['precision']:.4f}, recall: {fifpdpmc_results['recall']:.4f}, "
+                   f"time: {fifpdpmc_time:.3f}s")
         # ====================================
         
         # === Core functionality: plot comparison chart ===
@@ -985,6 +1005,7 @@ def run_single_experiment(config, args, base_output_dir="results"):
             'config': config,
             'gnn_results': gnn_results,
             'rnn_results': rnn_results,
+            'fifpdpmc_results': fifpdpmc_results,
             'dataset_info': {
                 'num_graphs': len(gnn_train) + len(gnn_val) + len(gnn_test),
                 'gnn_samples': len(gnn_train) + len(gnn_val) + len(gnn_test),
@@ -996,6 +1017,7 @@ def run_single_experiment(config, args, base_output_dir="results"):
         logger.info(f"Experiment {exp_name} completed:")
         logger.info(f"  GNN - accuracy: {gnn_results['accuracy']:.4f}, F1: {gnn_results['f1_score']:.4f}, time: {gnn_train_time:.1f}s")
         logger.info(f"  RNNIFDCOM - accuracy: {rnn_results['accuracy']:.4f}, F1: {rnn_results['f1_score']:.4f}, time: {rnn_train_time:.1f}s")
+        logger.info(f"  FIFPDPMC - accuracy: {fifpdpmc_results['accuracy']:.4f}, F1: {fifpdpmc_results['f1_score']:.4f}, time: {fifpdpmc_time:.3f}s")
         
         # save detailed results
         result_file = os.path.join(exp_output_dir, 'results.txt')
@@ -1004,12 +1026,16 @@ def run_single_experiment(config, args, base_output_dir="results"):
             f.write(f"Configuration: {config}\n\n")
             f.write(f"GNN results: accuracy={gnn_results['accuracy']:.4f}, F1={gnn_results['f1_score']:.4f}, ")
             f.write(f"precision={gnn_results['precision']:.4f}, recall={gnn_results['recall']:.4f}, ")
-            f.write(f"false negnnive rate={gnn_results['false_negnnive_rate']:.4f}, false positive rate={gnn_results['false_positive_rate']:.4f}, ")
+            f.write(f"false negative rate={gnn_results['false_negnnive_rate']:.4f}, false positive rate={gnn_results['false_positive_rate']:.4f}, ")
             f.write(f"time={gnn_train_time:.1f}s\n")
             f.write(f"RNNIFDCOM results: accuracy={rnn_results['accuracy']:.4f}, F1={rnn_results['f1_score']:.4f}, ")
             f.write(f"precision={rnn_results['precision']:.4f}, recall={rnn_results['recall']:.4f}, ")
-            f.write(f"false negnnive rate={rnn_results['false_negnnive_rate']:.4f}, false positive rate={rnn_results['false_positive_rate']:.4f}, ")
+            f.write(f"false negative rate={rnn_results['false_negnnive_rate']:.4f}, false positive rate={rnn_results['false_positive_rate']:.4f}, ")
             f.write(f"time={rnn_train_time:.1f}s\n")
+            f.write(f"FIFPDPMC results: accuracy={fifpdpmc_results['accuracy']:.4f}, F1={fifpdpmc_results['f1_score']:.4f}, ")
+            f.write(f"precision={fifpdpmc_results['precision']:.4f}, recall={fifpdpmc_results['recall']:.4f}, ")
+            f.write(f"false negative rate={fifpdpmc_results['false_negative_rate']:.4f}, false positive rate={fifpdpmc_results['false_positive_rate']:.4f}, ")
+            f.write(f"time={fifpdpmc_time:.3f}s (traditional baseline, no training)\n")
         # ========================================
         
         return results
@@ -1022,7 +1048,8 @@ def run_single_experiment(config, args, base_output_dir="results"):
             'config': config,
             'error': str(e),
             'gnn_results': None,
-            'rnn_results': None
+            'rnn_results': None,
+            'fifpdpmc_results': None
         }
     # ============================
     
@@ -1043,6 +1070,8 @@ def main():
     parser.add_argument('--k', type=int, default=None, help='k-ary cube parameter')
     parser.add_argument('--fault_rate', type=float, default=None, help='Fault node ratio')
     parser.add_argument('--fault_count', type=int, default=None, help='Fault node count')
+    parser.add_argument('--exceed_diagnosability', type=int, default=None,
+                        help='Set fault_count = theoretical_diagnosability + N (break through fault limit). Overrides --fault_count.')
     parser.add_argument('--intermittent_prob', type=float, default=0.5, help='Intermittent fault probability')
     parser.add_argument('--num_rounds', type=int, default=10, help='Test rounds')
     parser.add_argument('--num_graphs', type=int, default=1000, help='Number of graphs to generate')
@@ -1067,6 +1096,18 @@ def main():
     parser.add_argument('--output_dir', type=str, default='results/unified_comparison', help='Output directory')
     
     args = parser.parse_args()
+
+    # Resolve fault_count when exceeding diagnosability limit
+    if args.exceed_diagnosability is not None:
+        from graphs import GraphFactory
+        temp_graph = GraphFactory.create_graph(
+            args.graph_type, args.n, args.k,
+            None, None, args.intermittent_prob, args.seed
+        )
+        diag = temp_graph.theoretical_diagnosability
+        args.fault_count = diag + args.exceed_diagnosability
+        logger.info(f"Exceed diagnosability mode: fault_count = {diag} + {args.exceed_diagnosability} = {args.fault_count} "
+                   f"(theoretical limit: {diag})")
     
     # set random seed
     torch.manual_seed(args.seed)
