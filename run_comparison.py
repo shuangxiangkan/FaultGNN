@@ -192,8 +192,12 @@ def train_gnn_model(train_loader, val_loader, input_dim, hidden_dim=64,
     criterion = FocalLoss(alpha=0.25, gamma=2.0).to(device)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=20)
     
+    num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    logger.info(f"GNN trainable parameters: {num_params:,}")
+    
     best_val_f1 = 0
     best_model_state = model.state_dict()
+    best_epoch = 0
     early_stop_counter = 0
     early_stop_patience = 30
     
@@ -348,6 +352,7 @@ def train_gnn_model(train_loader, val_loader, input_dim, hidden_dim=64,
         if val_f1 > best_val_f1:
             best_val_f1 = val_f1
             best_model_state = model.state_dict()
+            best_epoch = epoch + 1
             early_stop_counter = 0
         else:
             early_stop_counter += 1
@@ -360,17 +365,22 @@ def train_gnn_model(train_loader, val_loader, input_dim, hidden_dim=64,
         # ==========================================
         
         # ========== Performance optimization: periodic garbage collection ==========
-        # Periodic garbage collection
         if epoch % 10 == 0:
             gc.collect()
         # ========================================
     # =======================================
     
-    # === Core functionality: restore best model ===
+    total_epochs = len(train_f1_history)
     model.load_state_dict(best_model_state)
-    logger.info(f"GNN training completed, best validation F1: {best_val_f1:.4f}")
-    return model, train_f1_history, val_f1_history
-    # ===========================
+    logger.info(f"GNN training completed, best validation F1: {best_val_f1:.4f}, "
+               f"convergence epoch: {best_epoch}/{total_epochs}, params: {num_params:,}")
+    
+    train_info = {
+        'convergence_epoch': best_epoch,
+        'total_epochs': total_epochs,
+        'num_params': num_params
+    }
+    return model, train_f1_history, val_f1_history, train_info
 
 
 # ========== Core functionality: RNNIFDCOM model training ==========
@@ -384,6 +394,9 @@ def train_rnn_model(X_train, y_train, X_val, y_val, hidden_dims=[64, 32],
     output_dim = y_train.shape[1]
     
     model = RNNIFDCom_PMC(input_dim, output_dim, hidden_dims).to(device)
+    num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    logger.info(f"RNNIFDCOM trainable parameters: {num_params:,}")
+    
     optimizer = optim.Adam(model.parameters(), lr=lr)
     
     # Weighted loss to address class imbalance: fault nodes are rare minority
@@ -407,6 +420,7 @@ def train_rnn_model(X_train, y_train, X_val, y_val, hidden_dims=[64, 32],
     
     best_val_f1 = 0
     best_model_state = model.state_dict()
+    best_epoch = 0
     early_stop_counter = 0
     early_stop_patience = 30
     
@@ -462,6 +476,7 @@ def train_rnn_model(X_train, y_train, X_val, y_val, hidden_dims=[64, 32],
         if val_f1 > best_val_f1:
             best_val_f1 = val_f1
             best_model_state = model.state_dict()
+            best_epoch = epoch + 1
             early_stop_counter = 0
         else:
             early_stop_counter += 1
@@ -472,8 +487,17 @@ def train_rnn_model(X_train, y_train, X_val, y_val, hidden_dims=[64, 32],
         
         scheduler.step(val_f1)
     
+    total_epochs = len(train_f1_history)
     model.load_state_dict(best_model_state)
-    return model, train_f1_history, val_f1_history
+    logger.info(f"RNNIFDCOM training completed, best validation F1: {best_val_f1:.4f}, "
+               f"convergence epoch: {best_epoch}/{total_epochs}, params: {num_params:,}")
+    
+    train_info = {
+        'convergence_epoch': best_epoch,
+        'total_epochs': total_epochs,
+        'num_params': num_params
+    }
+    return model, train_f1_history, val_f1_history, train_info
 
 
 def evaluate_gnn_model(model, test_loader, device='cpu', disabled_nodes_dict=None):
@@ -493,6 +517,7 @@ def evaluate_gnn_model(model, test_loader, device='cpu', disabled_nodes_dict=Non
     preds = []
     true = []
     
+    infer_start = time.time()
     with torch.no_grad():
         for data_idx, data in enumerate(test_loader):
             data = data.to(device)
@@ -503,11 +528,8 @@ def evaluate_gnn_model(model, test_loader, device='cpu', disabled_nodes_dict=Non
             if disabled_nodes_dict and data_idx in disabled_nodes_dict:
                 disabled_nodes = disabled_nodes_dict[data_idx]
                 if len(disabled_nodes) > 0:
-                    # Create mask to exclude disabled nodes
                     enabled_mask = torch.ones(len(pred), dtype=torch.bool)
                     enabled_mask[disabled_nodes] = False
-                    
-                    # Only keep predictions and labels of non-disabled nodes
                     pred = pred[enabled_mask]
                     true_labels = data.y[enabled_mask]
                 else:
@@ -517,6 +539,7 @@ def evaluate_gnn_model(model, test_loader, device='cpu', disabled_nodes_dict=Non
             
             preds.extend(pred.cpu().numpy())
             true.extend(true_labels.cpu().numpy())
+    inference_time = time.time() - infer_start
     
     if len(preds) == 0:
         logger.warning("No valid nodes for evaluation")
@@ -549,7 +572,7 @@ def evaluate_gnn_model(model, test_loader, device='cpu', disabled_nodes_dict=Non
     logger.info(f'GNN test accuracy: {accuracy:.4f}, test F1: {f1:.4f}')
     logger.info(f'GNN precision: {precision:.4f}, recall: {recall:.4f}')
     logger.info(f'GNN false negnnive rate: {false_negnnive_rate:.4f}, false positive rate: {false_positive_rate:.4f}')
-    logger.info(f'GNN evaluated nodes: {total_evaluated_nodes}')
+    logger.info(f'GNN evaluated nodes: {total_evaluated_nodes}, inference time: {inference_time:.4f}s')
     logger.info(f'GNN test confusion matrix: \n{cm}')
     
     return {
@@ -560,7 +583,8 @@ def evaluate_gnn_model(model, test_loader, device='cpu', disabled_nodes_dict=Non
         'false_negnnive_rate': false_negnnive_rate,
         'false_positive_rate': false_positive_rate,
         'confusion_matrix': cm.tolist(),
-        'evaluated_nodes': total_evaluated_nodes
+        'evaluated_nodes': total_evaluated_nodes,
+        'inference_time': inference_time
     }
 
 
@@ -580,10 +604,12 @@ def evaluate_rnn_model(model, X_test, y_test, device='cpu', disabled_nodes=None)
     """
     model.eval()
     
+    infer_start = time.time()
     with torch.no_grad():
         X_test_tensor = torch.FloatTensor(X_test).to(device)
         out = model(X_test_tensor)
         sigmoid_out = torch.sigmoid(out).cpu().numpy()
+    inference_time = time.time() - infer_start
     
     true = y_test
     
@@ -647,7 +673,8 @@ def evaluate_rnn_model(model, X_test, y_test, device='cpu', disabled_nodes=None)
         'recall': recall,
         'false_negnnive_rate': fnr,
         'false_positive_rate': fpr,
-        'confusion_matrix': cm
+        'confusion_matrix': cm,
+        'inference_time': inference_time
     }
 
 
@@ -959,7 +986,7 @@ def run_single_experiment(config, args, base_output_dir="results"):
         # === Core functionality: train GNN model ===
         logger.info("Training GNN model...")
         gnn_start_time = time.time()
-        gnn_model, gnn_train_f1, gnn_val_f1 = train_gnn_model(
+        gnn_model, gnn_train_f1, gnn_val_f1, gnn_train_info = train_gnn_model(
             train_loader, val_loader, input_dim,
             hidden_dim=args.gnn_hidden_dim,
             num_layers=args.gnn_num_layers,
@@ -974,7 +1001,7 @@ def run_single_experiment(config, args, base_output_dir="results"):
         # === Core functionality: train RNNIFDCOM model ===
         logger.info("Training RNNIFDCOM model...")
         rnn_start_time = time.time()
-        rnn_model, rnn_train_f1, rnn_val_f1 = train_rnn_model(
+        rnn_model, rnn_train_f1, rnn_val_f1, rnn_train_info = train_rnn_model(
             X_train, y_train, X_val, y_val,
             hidden_dims=args.rnn_hidden_dims,
             epochs=args.epochs,
@@ -1017,12 +1044,17 @@ def run_single_experiment(config, args, base_output_dir="results"):
         # ======================================
         
         # === Core functionality: save experiment results ===
-        # merge training time information
         gnn_results['train_time'] = gnn_train_time
         gnn_results['best_val_f1'] = max(gnn_val_f1) if gnn_val_f1 else 0
+        gnn_results['convergence_epoch'] = gnn_train_info['convergence_epoch']
+        gnn_results['total_epochs'] = gnn_train_info['total_epochs']
+        gnn_results['num_params'] = gnn_train_info['num_params']
         
         rnn_results['train_time'] = rnn_train_time
         rnn_results['best_val_f1'] = max(rnn_val_f1) if rnn_val_f1 else 0
+        rnn_results['convergence_epoch'] = rnn_train_info['convergence_epoch']
+        rnn_results['total_epochs'] = rnn_train_info['total_epochs']
+        rnn_results['num_params'] = rnn_train_info['num_params']
         
         results = {
             'experiment_name': exp_name,
@@ -1039,9 +1071,16 @@ def run_single_experiment(config, args, base_output_dir="results"):
         
         # output results
         logger.info(f"Experiment {exp_name} completed:")
-        logger.info(f"  GNN - accuracy: {gnn_results['accuracy']:.4f}, F1: {gnn_results['f1_score']:.4f}, time: {gnn_train_time:.1f}s")
-        logger.info(f"  RNNIFDCOM - accuracy: {rnn_results['accuracy']:.4f}, F1: {rnn_results['f1_score']:.4f}, time: {rnn_train_time:.1f}s")
-        logger.info(f"  FIFPDPMC - accuracy: {fifpdpmc_results['accuracy']:.4f}, F1: {fifpdpmc_results['f1_score']:.4f}, time: {fifpdpmc_time:.3f}s")
+        logger.info(f"  GNN - accuracy: {gnn_results['accuracy']:.4f}, F1: {gnn_results['f1_score']:.4f}, "
+                   f"train: {gnn_train_time:.1f}s, infer: {gnn_results['inference_time']:.4f}s, "
+                   f"converge: {gnn_results['convergence_epoch']}/{gnn_results['total_epochs']}ep, "
+                   f"params: {gnn_results['num_params']:,}")
+        logger.info(f"  RNNIFDCOM - accuracy: {rnn_results['accuracy']:.4f}, F1: {rnn_results['f1_score']:.4f}, "
+                   f"train: {rnn_train_time:.1f}s, infer: {rnn_results['inference_time']:.4f}s, "
+                   f"converge: {rnn_results['convergence_epoch']}/{rnn_results['total_epochs']}ep, "
+                   f"params: {rnn_results['num_params']:,}")
+        logger.info(f"  FIFPDPMC - accuracy: {fifpdpmc_results['accuracy']:.4f}, F1: {fifpdpmc_results['f1_score']:.4f}, "
+                   f"time: {fifpdpmc_time:.3f}s")
         
         # save detailed results
         result_file = os.path.join(exp_output_dir, 'results.txt')
@@ -1129,37 +1168,44 @@ def run_feature_ablation(args, base_output_dir="results"):
             fifpdpmc_result = result['fifpdpmc_results']
     
     # Print comparison table
-    logger.info("\n" + "=" * 80)
+    logger.info("\n" + "=" * 130)
     logger.info("Feature Ablation Results Summary")
-    logger.info("=" * 80)
-    header = f"{'Mode':<12} {'Accuracy':>10} {'F1':>10} {'Precision':>10} {'Recall':>10} {'FNR':>10} {'FPR':>10} {'Time(s)':>10}"
+    logger.info("=" * 130)
+    header = (f"{'Mode':<14} {'Accuracy':>8} {'F1':>8} {'Prec':>8} {'Recall':>8} "
+              f"{'FNR':>8} {'FPR':>8} {'Train(s)':>9} {'Infer(s)':>9} "
+              f"{'ConvEp':>7} {'Params':>10}")
     logger.info(header)
-    logger.info("-" * 82)
+    logger.info("-" * 130)
     
     for mode in feature_modes:
         r = ablation_results[mode]
         if r.get('gnn_results'):
             g = r['gnn_results']
-            logger.info(f"GNN-{mode:<8} {g['accuracy']:>10.4f} {g['f1_score']:>10.4f} "
-                       f"{g['precision']:>10.4f} {g['recall']:>10.4f} "
-                       f"{g['false_negnnive_rate']:>10.4f} {g['false_positive_rate']:>10.4f} "
-                       f"{g.get('train_time', 0):>10.1f}")
+            logger.info(f"GNN-{mode:<10} {g['accuracy']:>8.4f} {g['f1_score']:>8.4f} "
+                       f"{g['precision']:>8.4f} {g['recall']:>8.4f} "
+                       f"{g['false_negnnive_rate']:>8.4f} {g['false_positive_rate']:>8.4f} "
+                       f"{g.get('train_time', 0):>9.1f} {g.get('inference_time', 0):>9.4f} "
+                       f"{g.get('convergence_epoch', 0):>4}/{g.get('total_epochs', 0):<3} "
+                       f"{g.get('num_params', 0):>10,}")
         else:
-            logger.info(f"GNN-{mode:<8} {'ERROR':>10}")
+            logger.info(f"GNN-{mode:<10} {'ERROR':>8}")
     
     if rnn_result:
-        logger.info(f"{'RNNIFDCOM':<12} {rnn_result['accuracy']:>10.4f} {rnn_result['f1_score']:>10.4f} "
-                   f"{rnn_result['precision']:>10.4f} {rnn_result['recall']:>10.4f} "
-                   f"{rnn_result['false_negnnive_rate']:>10.4f} {rnn_result['false_positive_rate']:>10.4f} "
-                   f"{rnn_result.get('train_time', 0):>10.1f}")
+        logger.info(f"{'RNNIFDCOM':<14} {rnn_result['accuracy']:>8.4f} {rnn_result['f1_score']:>8.4f} "
+                   f"{rnn_result['precision']:>8.4f} {rnn_result['recall']:>8.4f} "
+                   f"{rnn_result['false_negnnive_rate']:>8.4f} {rnn_result['false_positive_rate']:>8.4f} "
+                   f"{rnn_result.get('train_time', 0):>9.1f} {rnn_result.get('inference_time', 0):>9.4f} "
+                   f"{rnn_result.get('convergence_epoch', 0):>4}/{rnn_result.get('total_epochs', 0):<3} "
+                   f"{rnn_result.get('num_params', 0):>10,}")
     if fifpdpmc_result:
-        logger.info(f"{'FIFPDPMC':<12} {fifpdpmc_result['accuracy']:>10.4f} {fifpdpmc_result['f1_score']:>10.4f} "
-                   f"{fifpdpmc_result['precision']:>10.4f} {fifpdpmc_result['recall']:>10.4f} "
-                   f"{fifpdpmc_result.get('false_negative_rate', 0):>10.4f} "
-                   f"{fifpdpmc_result.get('false_positive_rate', 0):>10.4f} "
-                   f"{fifpdpmc_result.get('train_time', 0):>10.3f}")
+        logger.info(f"{'FIFPDPMC':<14} {fifpdpmc_result['accuracy']:>8.4f} {fifpdpmc_result['f1_score']:>8.4f} "
+                   f"{fifpdpmc_result['precision']:>8.4f} {fifpdpmc_result['recall']:>8.4f} "
+                   f"{fifpdpmc_result.get('false_negative_rate', 0):>8.4f} "
+                   f"{fifpdpmc_result.get('false_positive_rate', 0):>8.4f} "
+                   f"{fifpdpmc_result.get('train_time', 0):>9.3f} {'N/A':>9} "
+                   f"{'N/A':>7} {'N/A':>10}")
     
-    logger.info("=" * 80)
+    logger.info("=" * 130)
     
     # Save ablation summary to file
     summary_file = os.path.join(ablation_dir, "ablation_summary.txt")
@@ -1167,26 +1213,31 @@ def run_feature_ablation(args, base_output_dir="results"):
         f.write("Feature Ablation Study Results\n")
         f.write(f"Graph: {args.graph_type}, n={args.n}, k={args.k}\n\n")
         f.write(header + "\n")
-        f.write("-" * 82 + "\n")
+        f.write("-" * 130 + "\n")
         for mode in feature_modes:
             r = ablation_results[mode]
             if r.get('gnn_results'):
                 g = r['gnn_results']
-                f.write(f"GNN-{mode:<8} {g['accuracy']:>10.4f} {g['f1_score']:>10.4f} "
-                       f"{g['precision']:>10.4f} {g['recall']:>10.4f} "
-                       f"{g['false_negnnive_rate']:>10.4f} {g['false_positive_rate']:>10.4f} "
-                       f"{g.get('train_time', 0):>10.1f}\n")
+                f.write(f"GNN-{mode:<10} {g['accuracy']:>8.4f} {g['f1_score']:>8.4f} "
+                       f"{g['precision']:>8.4f} {g['recall']:>8.4f} "
+                       f"{g['false_negnnive_rate']:>8.4f} {g['false_positive_rate']:>8.4f} "
+                       f"{g.get('train_time', 0):>9.1f} {g.get('inference_time', 0):>9.4f} "
+                       f"{g.get('convergence_epoch', 0):>4}/{g.get('total_epochs', 0):<3} "
+                       f"{g.get('num_params', 0):>10,}\n")
         if rnn_result:
-            f.write(f"{'RNNIFDCOM':<12} {rnn_result['accuracy']:>10.4f} {rnn_result['f1_score']:>10.4f} "
-                   f"{rnn_result['precision']:>10.4f} {rnn_result['recall']:>10.4f} "
-                   f"{rnn_result['false_negnnive_rate']:>10.4f} {rnn_result['false_positive_rate']:>10.4f} "
-                   f"{rnn_result.get('train_time', 0):>10.1f}\n")
+            f.write(f"{'RNNIFDCOM':<14} {rnn_result['accuracy']:>8.4f} {rnn_result['f1_score']:>8.4f} "
+                   f"{rnn_result['precision']:>8.4f} {rnn_result['recall']:>8.4f} "
+                   f"{rnn_result['false_negnnive_rate']:>8.4f} {rnn_result['false_positive_rate']:>8.4f} "
+                   f"{rnn_result.get('train_time', 0):>9.1f} {rnn_result.get('inference_time', 0):>9.4f} "
+                   f"{rnn_result.get('convergence_epoch', 0):>4}/{rnn_result.get('total_epochs', 0):<3} "
+                   f"{rnn_result.get('num_params', 0):>10,}\n")
         if fifpdpmc_result:
-            f.write(f"{'FIFPDPMC':<12} {fifpdpmc_result['accuracy']:>10.4f} {fifpdpmc_result['f1_score']:>10.4f} "
-                   f"{fifpdpmc_result['precision']:>10.4f} {fifpdpmc_result['recall']:>10.4f} "
-                   f"{fifpdpmc_result.get('false_negative_rate', 0):>10.4f} "
-                   f"{fifpdpmc_result.get('false_positive_rate', 0):>10.4f} "
-                   f"{fifpdpmc_result.get('train_time', 0):>10.3f}\n")
+            f.write(f"{'FIFPDPMC':<14} {fifpdpmc_result['accuracy']:>8.4f} {fifpdpmc_result['f1_score']:>8.4f} "
+                   f"{fifpdpmc_result['precision']:>8.4f} {fifpdpmc_result['recall']:>8.4f} "
+                   f"{fifpdpmc_result.get('false_negative_rate', 0):>8.4f} "
+                   f"{fifpdpmc_result.get('false_positive_rate', 0):>8.4f} "
+                   f"{fifpdpmc_result.get('train_time', 0):>9.3f} {'N/A':>9} "
+                   f"{'N/A':>7} {'N/A':>10}\n")
     
     logger.info(f"Ablation summary saved to: {summary_file}")
     return ablation_results
