@@ -637,8 +637,8 @@ def evaluate_rnn_model(model, X_test, y_test, device='cpu', disabled_nodes=None)
     }
 
 
-def get_or_generate_dataset(graph_type, n, k=None, fault_rate=None, fault_count=None,
-                           intermittent_prob=0.5, num_rounds=10, num_graphs=1000, 
+def get_or_generate_dataset(graph_type, n, k=None, p=None, fault_rate=None, fault_count=None,
+                           intermittent_prob=0.5, num_rounds=10, num_graphs=1000,
                            seed=42, n_jobs=None, base_dir="datasets", force_regenerate=False,
                            use_global_pool=True):
     """
@@ -664,7 +664,7 @@ def get_or_generate_dataset(graph_type, n, k=None, fault_rate=None, fault_count=
     """
     # === Core functionality: create temporary generator to get default directory name ===
     temp_generator = UnifiedDatasetGenerator(
-        graph_type=graph_type, n=n, k=k, 
+        graph_type=graph_type, n=n, k=k, p=p,
         fault_rate=fault_rate, fault_count=fault_count,
         intermittent_prob=intermittent_prob, num_rounds=num_rounds,
         seed=seed, n_jobs=n_jobs, use_global_pool=use_global_pool
@@ -703,6 +703,7 @@ def get_or_generate_dataset(graph_type, n, k=None, fault_rate=None, fault_count=
                 metadata.get('graph_type') == graph_type and
                 metadata.get('n') == n and
                 metadata.get('k') == k and
+                metadata.get('p') == p and
                 metadata.get('fault_rate') == fault_rate and
                 metadata.get('fault_count') == fault_count and
                 metadata.get('intermittent_prob') == intermittent_prob and
@@ -726,13 +727,14 @@ def get_or_generate_dataset(graph_type, n, k=None, fault_rate=None, fault_count=
         graph_type=graph_type,
         n=n,
         k=k,
+        p=p,
         fault_rate=fault_rate,
         fault_count=fault_count,
         intermittent_prob=intermittent_prob,
         num_rounds=num_rounds,
         seed=seed,
         n_jobs=n_jobs,
-        use_global_pool=use_global_pool  
+        use_global_pool=use_global_pool
     )
     
     try:
@@ -814,6 +816,9 @@ def run_single_experiment(config, args, base_output_dir="results"):
     exp_name = f"{graph_type}_n{n}"
     if k is not None:
         exp_name += f"_k{k}"
+    p = config.get('p')
+    if p is not None and graph_type == 'watts_strogatz':
+        exp_name += f"_p{int(p * 100):02d}"
     if fault_rate is not None:
         exp_name += f"_rate{fault_rate:.2f}"
     elif fault_count is not None:
@@ -839,6 +844,7 @@ def run_single_experiment(config, args, base_output_dir="results"):
             graph_type=graph_type,
             n=n,
             k=k,
+            p=config.get('p'),
             fault_rate=fault_rate,
             fault_count=fault_count,
             intermittent_prob=args.intermittent_prob,
@@ -848,7 +854,7 @@ def run_single_experiment(config, args, base_output_dir="results"):
             n_jobs=args.n_jobs,
             base_dir=args.dataset_base_dir,
             force_regenerate=getattr(args, 'force_regenerate', False),
-            use_global_pool=True  
+            use_global_pool=True
         )
 
         # === Core functionality: clean up intermediate resources after dataset generation ===
@@ -916,7 +922,7 @@ def run_single_experiment(config, args, base_output_dir="results"):
             # === Core functionality: rebuild graph object for RNN processing ===
             from graphs import GraphFactory
             temp_graph = GraphFactory.create_graph(
-                graph_type=graph_type, n=n, k=k, 
+                graph_type=graph_type, n=n, k=k, p=config.get('p'),
                 fault_rate=fault_rate, fault_count=fault_count,
                 intermittent_prob=args.intermittent_prob, seed=args.seed
             )
@@ -1065,9 +1071,14 @@ def main():
     parser = argparse.ArgumentParser(description='Unified comparison experiment: GNN vs RNNIFDCOM')
     
     # experiment parameters
-    parser.add_argument('--graph_type', type=str, default='bc', help='Graph type')
-    parser.add_argument('--n', type=int, default=8, help='Graph scale parameter')
-    parser.add_argument('--k', type=int, default=None, help='k-ary cube parameter')
+    parser.add_argument('--graph_type', type=str, default='bc',
+                        help='Graph type (bc, watts_strogatz, augmented_k_ary_n_cube)')
+    parser.add_argument('--n', type=int, default=8,
+                        help='BC: dimension. watts_strogatz: ignored (n_ws=2^k_ws)')
+    parser.add_argument('--k', type=int, default=None,
+                        help='watts_strogatz: k_ws (required, n_ws=2^k_ws). k-ary cube: base')
+    parser.add_argument('--p', type=float, default=None,
+                        help='Watts-Strogatz rewiring probability (default 0.1)')
     parser.add_argument('--fault_rate', type=float, default=None, help='Fault node ratio')
     parser.add_argument('--fault_count', type=int, default=None, help='Fault node count')
     parser.add_argument('--exceed_diagnosability', type=int, default=None,
@@ -1097,11 +1108,19 @@ def main():
     
     args = parser.parse_args()
 
+    # Resolve Watts-Strogatz: n_ws = 2^k_ws (like hypercube nodes = 2^n), p_ws fixed 0.1
+    if args.graph_type == 'watts_strogatz':
+        if args.k is None:
+            raise ValueError("For watts_strogatz, --k (k_ws) is required. Example: --k 6 => n_ws=64 nodes")
+        args.n = 2 ** args.k  # n_ws derived from k_ws
+        args.p = args.p if args.p is not None else 0.1  # p_ws default 0.1
+        logger.info(f"Watts-Strogatz: k_ws={args.k} => n_ws=2^{args.k}={args.n} nodes, p_ws={args.p}")
+
     # Resolve fault_count when exceeding diagnosability limit
     if args.exceed_diagnosability is not None:
         from graphs import GraphFactory
         temp_graph = GraphFactory.create_graph(
-            args.graph_type, args.n, args.k,
+            args.graph_type, args.n, args.k, args.p,
             None, None, args.intermittent_prob, args.seed
         )
         diag = temp_graph.theoretical_diagnosability
@@ -1125,6 +1144,7 @@ def main():
         'graph_type': args.graph_type,
         'n': args.n,
         'k': args.k,
+        'p': args.p,
         'fault_rate': args.fault_rate,
         'fault_count': args.fault_count
     }

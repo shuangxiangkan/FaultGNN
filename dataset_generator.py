@@ -58,6 +58,7 @@ class UnifiedDatasetGenerator:
     """
     
     def __init__(self, graph_type: str, n: int, k: Optional[int] = None, 
+                 p: Optional[float] = None,
                  fault_rate: Optional[float] = None, fault_count: Optional[int] = None,
                  intermittent_prob: float = 0.5, num_rounds: int = 10, seed: int = 42,
                  n_jobs: Optional[int] = None, use_global_pool: bool = True):
@@ -67,9 +68,17 @@ class UnifiedDatasetGenerator:
         Args:
             use_global_pool: Whether to use global process pool (recommended for multi-round training)
         """
+        # Watts-Strogatz: n_ws = 2^k_ws when n not specified (like hypercube nodes = 2^n)
+        if graph_type == 'watts_strogatz' and n is None and k is not None:
+            n = 2 ** k
+            logger.info(f"Watts-Strogatz: n_ws=2^k_ws=2^{k}={n} (auto-derived)")
+        elif graph_type == 'watts_strogatz' and p is None:
+            p = 0.1  # p_ws default
+
         self.graph_type = graph_type
         self.n = n
         self.k = k
+        self.p = p
         self.fault_rate = fault_rate
         self.fault_count = fault_count
         self.intermittent_prob = intermittent_prob
@@ -85,7 +94,7 @@ class UnifiedDatasetGenerator:
         
         # Create a temporary graph to estimate size and configuration
         temp_graph = GraphFactory.create_graph(
-            graph_type, n, k, fault_rate, fault_count, intermittent_prob, seed
+            graph_type, n, k, p, fault_rate, fault_count, intermittent_prob, seed
         )
         
         self.num_vertices = temp_graph.num_vertices
@@ -108,7 +117,12 @@ class UnifiedDatasetGenerator:
         logger.info(f"Detected {process_type} (estimated {estimated_nodes} nodes), using {self.n_jobs} processes for parallel generation")
         
         # Log graph configuration information
-        logger.info(f"Graph configuration: {graph_type} n={n}" + (f" k={k}" if k is not None else ""))
+        log_extra = ""
+        if k is not None:
+            log_extra += f" k={k}"
+        if self.p is not None and graph_type == 'watts_strogatz':
+            log_extra += f" p={self.p}"
+        logger.info(f"Graph configuration: {graph_type} n={n}" + log_extra)
         logger.info(f"Graph scale: {self.num_vertices} nodes, {self.num_edges} edges")
         logger.info(f"Parallel configuration: {self.n_jobs} processes" + ("(using global process pool)" if use_global_pool else ""))
 
@@ -135,13 +149,15 @@ class UnifiedDatasetGenerator:
             pool.close()
             pool.join()
 
-    def _estimate_node_count(self, graph_type: str, n: int, k: Optional[int]) -> int:
+    def _estimate_node_count(self, graph_type: str, n: Optional[int], k: Optional[int]) -> int:
         """Estimate the number of nodes in the graph"""
         if graph_type == 'augmented_k_ary_n_cube':
             k = k or 3
             return k ** n
         elif graph_type == 'bc':
             return 2 ** n
+        elif graph_type == 'watts_strogatz':
+            return n if n is not None else (2 ** (k or 4))  # n_ws or 2^k_ws
         else:
             return 100  # Conservative estimate
     
@@ -161,6 +177,9 @@ class UnifiedDatasetGenerator:
         # If k parameter exists, add k information
         if self.k is not None:
             dir_name += f"_k{self.k}"
+        # If p parameter exists (watts_strogatz), add p information
+        if self.p is not None and self.graph_type == 'watts_strogatz':
+            dir_name += f"_p{int(self.p * 100):02d}"
         
         # Fault information part
         if self.fault_rate is not None:
@@ -185,8 +204,8 @@ class UnifiedDatasetGenerator:
         for i in range(num_graphs):
             seed = self.rng.integers(0, 100000)
             task_args.append((
-                self.graph_type, self.n, self.k, self.fault_rate, 
-                self.fault_count, self.intermittent_prob, 
+                self.graph_type, self.n, self.k, self.p, self.fault_rate,
+                self.fault_count, self.intermittent_prob,
                 self.num_rounds, seed, i
             ))
         
@@ -214,6 +233,7 @@ class UnifiedDatasetGenerator:
                 'graph_type': self.graph_type,
                 'n': self.n,
                 'k': self.k,
+                'p': self.p,
                 'fault_rate': self.fault_rate,
                 'fault_count': self.fault_count,
                 'intermittent_prob': self.intermittent_prob,
@@ -229,11 +249,23 @@ class UnifiedDatasetGenerator:
             }
         }
         
+        # Compute global max degree across all graph instances
+        # (needed for random graphs like WS where max_degree varies per instance)
+        from collections import Counter
+        global_max_degree = 0
         for result in results:
             raw_data['graph_configs'].append(result['config'])
             raw_data['sparse_syndromes'].append(result['sparse_syndromes'])
             raw_data['fault_states'].append(result['fault_states'])
             raw_data['graph_structures'].append(result['graph_structure'])
+            degree_count = Counter()
+            for u, v in result['graph_structure']['edges']:
+                degree_count[u] += 1
+                degree_count[v] += 1
+            if degree_count:
+                global_max_degree = max(global_max_degree, max(degree_count.values()))
+        
+        raw_data['metadata']['global_max_degree'] = global_max_degree
         
         # Calculate space savings and performance statistics
         dense_size = len(results) * self.num_rounds * self.num_vertices * self.num_vertices * 8
@@ -336,6 +368,8 @@ class UnifiedDatasetGenerator:
         logger.info("Parallel conversion of sparse data to GNN format...")
         start_time = time.time()
         
+        global_max_degree = raw_data['metadata'].get('global_max_degree', 0)
+
         # Prepare conversion task parameters
         conversion_args = []
         for i in range(len(raw_data['sparse_syndromes'])):
@@ -344,8 +378,9 @@ class UnifiedDatasetGenerator:
                 raw_data['sparse_syndromes'][i],
                 raw_data['fault_states'][i],
                 raw_data['graph_configs'][i],
-                self.graph_type, self.n, self.k, self.fault_rate,
-                self.fault_count, self.intermittent_prob
+                self.graph_type, self.n, self.k, self.p, self.fault_rate,
+                self.fault_count, self.intermittent_prob,
+                global_max_degree
             ))
         
         # Parallel conversion
@@ -516,13 +551,13 @@ def generate_single_graph_data(args):
     Returns:
         Dictionary containing data for a single graph
     """
-    (graph_type, n, k, fault_rate, fault_count, intermittent_prob, 
+    (graph_type, n, k, p, fault_rate, fault_count, intermittent_prob,
      num_rounds, seed, graph_idx) = args
     
     try:
         # Create graph instance
         graph = GraphFactory.create_graph(
-            graph_type, n, k, fault_rate, fault_count, intermittent_prob, seed
+            graph_type, n, k, p, fault_rate, fault_count, intermittent_prob, seed
         )
         
         # Generate multiple rounds of sparse symptom data
@@ -559,18 +594,20 @@ def convert_single_graph_to_gnn(args):
     """
     Convert single graph to GNN format (for parallel processing)
     """
-    (idx, sparse_syndromes, fault_states, config, 
-     graph_type, n, k, fault_rate, fault_count, intermittent_prob) = args
+    (idx, sparse_syndromes, fault_states, config,
+     graph_type, n, k, p, fault_rate, fault_count, intermittent_prob,
+     global_max_degree) = args
     
     try:
         # Reconstruct graph object
         graph = GraphFactory.create_graph(
-            graph_type, n, k, fault_rate, fault_count, 
+            graph_type, n, k, p, fault_rate, fault_count,
             intermittent_prob, config['seed']
         )
         
-        # Generate node features using sparse data
-        x = graph.get_node_features_from_sparse_syndromes(sparse_syndromes)
+        # Generate node features, using global_max_degree to ensure consistent dimensions
+        x = graph.get_node_features_from_sparse_syndromes(
+            sparse_syndromes, global_max_neighbors=global_max_degree or None)
         
         # Generate edge indices
         edge_index = graph.get_edge_index()
@@ -734,8 +771,9 @@ class UnifiedDatasetLoader:
 
 
 def generate_dataset_from_config(graph_type: str = 'bc', n: int = 8, k: Optional[int] = None,
+                                p: Optional[float] = None,
                                 fault_rate: Optional[float] = None, fault_count: Optional[int] = None,
-                                num_graphs: int = 10, num_rounds: int = 10, 
+                                num_graphs: int = 10, num_rounds: int = 10,
                                 intermittent_prob: float = 0.5, seed: int = 42,
                                 n_jobs: Optional[int] = None, save_dir: Optional[str] = None) -> Dict:
     """
@@ -757,11 +795,17 @@ def generate_dataset_from_config(graph_type: str = 'bc', n: int = 8, k: Optional
     Returns:
         Dictionary containing generated dataset
     """
+    # Watts-Strogatz: n_ws = 2^k_ws (like hypercube), p_ws default 0.1
+    if graph_type == 'watts_strogatz' and k is not None:
+        n = 2 ** k
+        p = p or 0.1
+
     # Create parallel generator
     generator = UnifiedDatasetGenerator(
         graph_type=graph_type,
         n=n,
         k=k,
+        p=p,
         fault_rate=fault_rate,
         fault_count=fault_count,
         intermittent_prob=intermittent_prob,
@@ -787,9 +831,10 @@ def generate_dataset_from_config(graph_type: str = 'bc', n: int = 8, k: Optional
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Parallel generation of unified dataset')
-    parser.add_argument('--graph_type', type=str, default='bc', help='Graph type')
-    parser.add_argument('--n', type=int, default=8, help='Graph scale parameter')
-    parser.add_argument('--k', type=int, default=None, help='k-ary cube parameter')
+    parser.add_argument('--graph_type', type=str, default='bc', help='Graph type (bc, watts_strogatz, augmented_k_ary_n_cube)')
+    parser.add_argument('--n', type=int, default=8, help='BC: dimension. watts_strogatz: ignored (n_ws=2^k_ws)')
+    parser.add_argument('--k', type=int, default=None, help='watts_strogatz: k_ws (required, n_ws=2^k_ws). k-ary cube: base')
+    parser.add_argument('--p', type=float, default=None, help='Watts-Strogatz rewiring probability (default 0.1)')
     parser.add_argument('--fault_rate', type=float, default=None, help='Fault node ratio')
     parser.add_argument('--fault_count', type=int, default=None, help='Fault node count')
     parser.add_argument('--num_graphs', type=int, default=10, help='Number of graphs to generate')
@@ -806,6 +851,7 @@ if __name__ == "__main__":
         graph_type=args.graph_type,
         n=args.n,
         k=args.k,
+        p=args.p,
         fault_rate=args.fault_rate,
         fault_count=args.fault_count,
         num_graphs=args.num_graphs,

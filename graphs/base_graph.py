@@ -350,13 +350,16 @@ class BaseKRegularGraph(ABC):
         
         return syndrome_matrix
 
-    def get_node_features_from_sparse_syndromes(self, sparse_syndromes, disabled_nodes=None):
+    def get_node_features_from_sparse_syndromes(self, sparse_syndromes, disabled_nodes=None,
+                                                global_max_neighbors=None):
         """
         Generate node features from sparse format multi-round syndrome data - optimized version
         
         Args:
             sparse_syndromes: List of multi-round sparse syndrome data
             disabled_nodes: Set of disabled nodes (these nodes do not participate in symptom generation)
+            global_max_neighbors: If provided, pad feature vectors to this length
+                (required for random graphs like WS where max_degree varies per instance)
             
         Returns:
             torch.tensor: Node feature matrix
@@ -364,42 +367,33 @@ class BaseKRegularGraph(ABC):
         num_rounds = len(sparse_syndromes)
         disabled_nodes = disabled_nodes or set()
         
-        # Pre-calculate test results statistics of each node for each neighbor in all rounds
-        # Use dictionary to store: {(u, v): count_1}
         edge_stats = {}
         
-        # Iterate through all rounds' data at once, complexity O(rounds×edges)
         for sparse_syndrome in sparse_syndromes:
             for edge_u, edge_v, test_u_to_v, test_v_to_u in sparse_syndrome:
-                # Skip edges involving disabled nodes
                 if edge_u in disabled_nodes or edge_v in disabled_nodes:
                     continue
                     
-                # Count u test v results
                 key_uv = (edge_u, edge_v)
                 if key_uv not in edge_stats:
                     edge_stats[key_uv] = 0
                 edge_stats[key_uv] += test_u_to_v
                 
-                # Count v test u results
                 key_vu = (edge_v, edge_u)
                 if key_vu not in edge_stats:
                     edge_stats[key_vu] = 0
                 edge_stats[key_vu] += test_v_to_u
         
-        # Find the maximum number of neighbors in the graph
-        max_neighbors = max(len(list(self.G.neighbors(u))) for u in self.vertices)
+        local_max = max(len(list(self.G.neighbors(u))) for u in self.vertices)
+        max_neighbors = max(local_max, global_max_neighbors or 0)
         
         features = []
         
-        # Generate features for each node, complexity O(nodes×neighbors)
         for u in self.vertices:
             neighbors = list(self.G.neighbors(u))
             node_feature = []
             
-            # Get proportion from pre-calculated statistics for each neighbor
             for v in neighbors:
-                # If neighbor is disabled, feature is 0
                 if v in disabled_nodes:
                     node_feature.append(0.0)
                 else:
@@ -408,11 +402,9 @@ class BaseKRegularGraph(ABC):
                     proportion_1 = count_1 / num_rounds if num_rounds > 0 else 0.0
                     node_feature.append(proportion_1)
             
-            # Zero pad to maximum neighbor count
             while len(node_feature) < max_neighbors:
                 node_feature.append(0.0)
             
-            # Add small noise to avoid full 0 features
             if all(f == 0.0 for f in node_feature):
                 for i in range(len(node_feature)):
                     node_feature[i] = self.rng.normal(0, 0.01)
