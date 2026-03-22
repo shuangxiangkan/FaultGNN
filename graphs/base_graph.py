@@ -204,51 +204,49 @@ class BaseKRegularGraph(ABC):
         
         return proportion_matrix
     
-    def get_node_features_from_multi_round(self, syndromes):
+    def get_node_features_from_multi_round(self, syndromes, feature_mode='incoming'):
         """
         Generate node features from multi-round test results.
         
-        Features are proportions of test results in multiple rounds that are 1 for each node's neighbors.
-        For non-k-regular graphs (e.g., star graph), use zero padding to ensure consistent feature vector length.
-        Add small noise to full 0 feature vectors to differentiate different fault-free nodes.
+        Args:
+            syndromes: List of syndrome matrices from multiple rounds
+            feature_mode: 'incoming'  — neighbors test current node (v tests u),
+                          'outgoing' — current node tests neighbors (u tests v),
+                          'concat'   — concatenate [outgoing, incoming] per neighbor
         """
-        # First aggregnne multi-round symptoms into proportion matrix
         proportion_matrix = self.aggregnne_syndromes_to_proportions(syndromes)
         
         features = []
-        
-        # Find the maximum number of neighbors in the graph (for non-regular graphs, e.g., star graph)
         max_neighbors = max(len(list(self.G.neighbors(u))) for u in self.vertices)
         
         for u in self.vertices:
             u_idx = self.node_to_idx[u]
             neighbors = list(self.G.neighbors(u))
-            # Initialize feature vector
             node_feature = []
             
-            # Use proportion matrix values for each neighbor
             for v in neighbors:
                 v_idx = self.node_to_idx[v]
-                proportion_1 = proportion_matrix[u_idx, v_idx]
-                node_feature.append(proportion_1)
+                if feature_mode == 'outgoing':
+                    node_feature.append(proportion_matrix[u_idx, v_idx])
+                elif feature_mode == 'incoming':
+                    node_feature.append(proportion_matrix[v_idx, u_idx])
+                elif feature_mode == 'concat':
+                    node_feature.append(proportion_matrix[u_idx, v_idx])
+                    node_feature.append(proportion_matrix[v_idx, u_idx])
             
-            # If neighbor count is less than maximum neighbor count, pad with zeros
-            padding_length = max_neighbors - len(neighbors)
+            target_len = max_neighbors * 2 if feature_mode == 'concat' else max_neighbors
+            padding_length = target_len - len(node_feature)
             if padding_length > 0:
                 node_feature.extend([0.0] * padding_length)
             
-            # Add small noise, especially when feature is all zeros
             is_all_zero = all(val == 0.0 for val in node_feature)
             for i in range(len(node_feature)):
-                # Add large noise to full 0 features, small noise to other features
                 noise_scale = 0.02 if is_all_zero else 0.005
                 noise = self.rng.normal(0, noise_scale)
-                # Ensure added noise is within [0,1] range
                 node_feature[i] = max(0.0, min(1.0, node_feature[i] + noise))
             
             features.append(node_feature)
         
-        # Convert to PyTorch tensor
         features = torch.tensor(features, dtype=torch.float)
         return features
     
@@ -351,15 +349,19 @@ class BaseKRegularGraph(ABC):
         return syndrome_matrix
 
     def get_node_features_from_sparse_syndromes(self, sparse_syndromes, disabled_nodes=None,
-                                                global_max_neighbors=None):
+                                                global_max_neighbors=None,
+                                                feature_mode='incoming'):
         """
-        Generate node features from sparse format multi-round syndrome data - optimized version
+        Generate node features from sparse format multi-round syndrome data.
         
         Args:
             sparse_syndromes: List of multi-round sparse syndrome data
             disabled_nodes: Set of disabled nodes (these nodes do not participate in symptom generation)
             global_max_neighbors: If provided, pad feature vectors to this length
                 (required for random graphs like WS where max_degree varies per instance)
+            feature_mode: 'incoming'  — neighbors test current node (v tests u),
+                          'outgoing' — current node tests neighbors (u tests v),
+                          'concat'   — concatenate [outgoing, incoming] per neighbor
             
         Returns:
             torch.tensor: Node feature matrix
@@ -395,14 +397,25 @@ class BaseKRegularGraph(ABC):
             
             for v in neighbors:
                 if v in disabled_nodes:
-                    node_feature.append(0.0)
+                    if feature_mode == 'concat':
+                        node_feature.extend([0.0, 0.0])
+                    else:
+                        node_feature.append(0.0)
                 else:
-                    key = (u, v)
-                    count_1 = edge_stats.get(key, 0)
-                    proportion_1 = count_1 / num_rounds if num_rounds > 0 else 0.0
-                    node_feature.append(proportion_1)
+                    if feature_mode == 'outgoing':
+                        count = edge_stats.get((u, v), 0)
+                        node_feature.append(count / num_rounds if num_rounds > 0 else 0.0)
+                    elif feature_mode == 'incoming':
+                        count = edge_stats.get((v, u), 0)
+                        node_feature.append(count / num_rounds if num_rounds > 0 else 0.0)
+                    elif feature_mode == 'concat':
+                        out_c = edge_stats.get((u, v), 0)
+                        in_c = edge_stats.get((v, u), 0)
+                        node_feature.append(out_c / num_rounds if num_rounds > 0 else 0.0)
+                        node_feature.append(in_c / num_rounds if num_rounds > 0 else 0.0)
             
-            while len(node_feature) < max_neighbors:
+            target_len = max_neighbors * 2 if feature_mode == 'concat' else max_neighbors
+            while len(node_feature) < target_len:
                 node_feature.append(0.0)
             
             if all(f == 0.0 for f in node_feature):

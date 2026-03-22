@@ -654,7 +654,7 @@ def evaluate_rnn_model(model, X_test, y_test, device='cpu', disabled_nodes=None)
 def get_or_generate_dataset(graph_type, n, k=None, p=None, fault_rate=None, fault_count=None,
                            intermittent_prob=0.5, num_rounds=10, num_graphs=1000,
                            seed=42, n_jobs=None, base_dir="datasets", force_regenerate=False,
-                           use_global_pool=True):
+                           use_global_pool=True, feature_mode='incoming'):
     """
     Smart dataset retrieval or generation - improved version, supports global process pool
     
@@ -681,7 +681,8 @@ def get_or_generate_dataset(graph_type, n, k=None, p=None, fault_rate=None, faul
         graph_type=graph_type, n=n, k=k, p=p,
         fault_rate=fault_rate, fault_count=fault_count,
         intermittent_prob=intermittent_prob, num_rounds=num_rounds,
-        seed=seed, n_jobs=n_jobs, use_global_pool=use_global_pool
+        seed=seed, n_jobs=n_jobs, use_global_pool=use_global_pool,
+        feature_mode=feature_mode
     )
     
     # enerate default directory name, but replace base path
@@ -748,7 +749,8 @@ def get_or_generate_dataset(graph_type, n, k=None, p=None, fault_rate=None, faul
         num_rounds=num_rounds,
         seed=seed,
         n_jobs=n_jobs,
-        use_global_pool=use_global_pool
+        use_global_pool=use_global_pool,
+        feature_mode=feature_mode
     )
     
     try:
@@ -824,6 +826,7 @@ def run_single_experiment(config, args, base_output_dir="results"):
     fault_rate = config.get('fault_rate')
     fault_count = config.get('fault_count')
     
+    feature_mode = config.get('feature_mode', 'incoming')
     missing_ratio = config.get('missing_ratio', 0.0)
     missing_type = config.get('missing_type', 'none')
     
@@ -868,7 +871,8 @@ def run_single_experiment(config, args, base_output_dir="results"):
             n_jobs=args.n_jobs,
             base_dir=args.dataset_base_dir,
             force_regenerate=getattr(args, 'force_regenerate', False),
-            use_global_pool=True
+            use_global_pool=True,
+            feature_mode=feature_mode
         )
 
         # === Core functionality: clean up intermediate resources after dataset generation ===
@@ -1081,6 +1085,113 @@ def run_single_experiment(config, args, base_output_dir="results"):
     # =============================================
 
 
+def run_feature_ablation(args, base_output_dir="results"):
+    """
+    Ablation study: compare GNN performance with incoming / outgoing / concat feature modes.
+    Raw syndrome data is generated once and reused; only GNN conversion differs per mode.
+    RNN and FIFPDPMC results are collected from the first run (feature-mode independent).
+    """
+    import copy
+    
+    feature_modes = ['incoming', 'outgoing', 'concat']
+    ablation_results = {}
+    rnn_result = None
+    fifpdpmc_result = None
+    
+    ablation_dir = os.path.join(base_output_dir, "ablation_feature")
+    os.makedirs(ablation_dir, exist_ok=True)
+    
+    logger.info("=" * 80)
+    logger.info("Feature Ablation Study: incoming vs outgoing vs concat")
+    logger.info("=" * 80)
+    
+    for mode in feature_modes:
+        logger.info(f"\n{'='*60}")
+        logger.info(f"Ablation: feature_mode = {mode}")
+        logger.info(f"{'='*60}")
+        
+        config = {
+            'graph_type': args.graph_type,
+            'n': args.n,
+            'k': args.k,
+            'p': args.p,
+            'fault_rate': args.fault_rate,
+            'fault_count': args.fault_count,
+            'feature_mode': mode
+        }
+        
+        result = run_single_experiment(config, args, ablation_dir)
+        ablation_results[mode] = result
+        
+        if rnn_result is None and result.get('rnn_results'):
+            rnn_result = result['rnn_results']
+        if fifpdpmc_result is None and result.get('fifpdpmc_results'):
+            fifpdpmc_result = result['fifpdpmc_results']
+    
+    # Print comparison table
+    logger.info("\n" + "=" * 80)
+    logger.info("Feature Ablation Results Summary")
+    logger.info("=" * 80)
+    header = f"{'Mode':<12} {'Accuracy':>10} {'F1':>10} {'Precision':>10} {'Recall':>10} {'FNR':>10} {'FPR':>10} {'Time(s)':>10}"
+    logger.info(header)
+    logger.info("-" * 82)
+    
+    for mode in feature_modes:
+        r = ablation_results[mode]
+        if r.get('gnn_results'):
+            g = r['gnn_results']
+            logger.info(f"GNN-{mode:<8} {g['accuracy']:>10.4f} {g['f1_score']:>10.4f} "
+                       f"{g['precision']:>10.4f} {g['recall']:>10.4f} "
+                       f"{g['false_negnnive_rate']:>10.4f} {g['false_positive_rate']:>10.4f} "
+                       f"{g.get('train_time', 0):>10.1f}")
+        else:
+            logger.info(f"GNN-{mode:<8} {'ERROR':>10}")
+    
+    if rnn_result:
+        logger.info(f"{'RNNIFDCOM':<12} {rnn_result['accuracy']:>10.4f} {rnn_result['f1_score']:>10.4f} "
+                   f"{rnn_result['precision']:>10.4f} {rnn_result['recall']:>10.4f} "
+                   f"{rnn_result['false_negnnive_rate']:>10.4f} {rnn_result['false_positive_rate']:>10.4f} "
+                   f"{rnn_result.get('train_time', 0):>10.1f}")
+    if fifpdpmc_result:
+        logger.info(f"{'FIFPDPMC':<12} {fifpdpmc_result['accuracy']:>10.4f} {fifpdpmc_result['f1_score']:>10.4f} "
+                   f"{fifpdpmc_result['precision']:>10.4f} {fifpdpmc_result['recall']:>10.4f} "
+                   f"{fifpdpmc_result.get('false_negative_rate', 0):>10.4f} "
+                   f"{fifpdpmc_result.get('false_positive_rate', 0):>10.4f} "
+                   f"{fifpdpmc_result.get('train_time', 0):>10.3f}")
+    
+    logger.info("=" * 80)
+    
+    # Save ablation summary to file
+    summary_file = os.path.join(ablation_dir, "ablation_summary.txt")
+    with open(summary_file, 'w') as f:
+        f.write("Feature Ablation Study Results\n")
+        f.write(f"Graph: {args.graph_type}, n={args.n}, k={args.k}\n\n")
+        f.write(header + "\n")
+        f.write("-" * 82 + "\n")
+        for mode in feature_modes:
+            r = ablation_results[mode]
+            if r.get('gnn_results'):
+                g = r['gnn_results']
+                f.write(f"GNN-{mode:<8} {g['accuracy']:>10.4f} {g['f1_score']:>10.4f} "
+                       f"{g['precision']:>10.4f} {g['recall']:>10.4f} "
+                       f"{g['false_negnnive_rate']:>10.4f} {g['false_positive_rate']:>10.4f} "
+                       f"{g.get('train_time', 0):>10.1f}\n")
+        if rnn_result:
+            f.write(f"{'RNNIFDCOM':<12} {rnn_result['accuracy']:>10.4f} {rnn_result['f1_score']:>10.4f} "
+                   f"{rnn_result['precision']:>10.4f} {rnn_result['recall']:>10.4f} "
+                   f"{rnn_result['false_negnnive_rate']:>10.4f} {rnn_result['false_positive_rate']:>10.4f} "
+                   f"{rnn_result.get('train_time', 0):>10.1f}\n")
+        if fifpdpmc_result:
+            f.write(f"{'FIFPDPMC':<12} {fifpdpmc_result['accuracy']:>10.4f} {fifpdpmc_result['f1_score']:>10.4f} "
+                   f"{fifpdpmc_result['precision']:>10.4f} {fifpdpmc_result['recall']:>10.4f} "
+                   f"{fifpdpmc_result.get('false_negative_rate', 0):>10.4f} "
+                   f"{fifpdpmc_result.get('false_positive_rate', 0):>10.4f} "
+                   f"{fifpdpmc_result.get('train_time', 0):>10.3f}\n")
+    
+    logger.info(f"Ablation summary saved to: {summary_file}")
+    return ablation_results
+
+
 def main():
     parser = argparse.ArgumentParser(description='Unified comparison experiment: GNN vs RNNIFDCOM')
     
@@ -1115,6 +1226,14 @@ def main():
     parser.add_argument('--epochs', type=int, default=100, help='Training epochs')
     parser.add_argument('--lr', type=float, default=0.002, help='Learning rate')
     parser.add_argument('--seed', type=int, default=42, help='Random seed')
+    
+    # feature mode
+    parser.add_argument('--feature_mode', type=str, default='incoming',
+                        choices=['incoming', 'outgoing', 'concat'],
+                        help='GNN node feature mode: incoming (neighbors test node), '
+                             'outgoing (node tests neighbors), concat (both)')
+    parser.add_argument('--ablation_feature', action='store_true',
+                        help='Run ablation study comparing incoming/outgoing/concat feature modes')
     
     # dataset and output
     parser.add_argument('--dataset_base_dir', type=str, default='datasets', help='Dataset base directory')
@@ -1153,24 +1272,29 @@ def main():
     logger.info("Unified comparison experiment: GNN vs RNNIFDCOM")
     logger.info("=" * 80)
     
-    # run single experiment
-    config = {
-        'graph_type': args.graph_type,
-        'n': args.n,
-        'k': args.k,
-        'p': args.p,
-        'fault_rate': args.fault_rate,
-        'fault_count': args.fault_count
-    }
-    
-    result = run_single_experiment(config, args, args.output_dir)
-    
-    if 'error' not in result:
-        logger.info("=" * 80)
-        logger.info("Experiment completed")
-        logger.info("=" * 80)
+    if args.ablation_feature:
+        # Ablation study: compare incoming / outgoing / concat feature modes
+        run_feature_ablation(args, args.output_dir)
     else:
-        logger.error(f"Experiment failed: {result['error']}")
+        # Run single experiment
+        config = {
+            'graph_type': args.graph_type,
+            'n': args.n,
+            'k': args.k,
+            'p': args.p,
+            'fault_rate': args.fault_rate,
+            'fault_count': args.fault_count,
+            'feature_mode': args.feature_mode
+        }
+        
+        result = run_single_experiment(config, args, args.output_dir)
+        
+        if 'error' not in result:
+            logger.info("=" * 80)
+            logger.info("Experiment completed")
+            logger.info("=" * 80)
+        else:
+            logger.error(f"Experiment failed: {result['error']}")
     
     # final cleanup of global resources
     cleanup_global_resources()

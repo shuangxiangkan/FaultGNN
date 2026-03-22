@@ -61,7 +61,8 @@ class UnifiedDatasetGenerator:
                  p: Optional[float] = None,
                  fault_rate: Optional[float] = None, fault_count: Optional[int] = None,
                  intermittent_prob: float = 0.5, num_rounds: int = 10, seed: int = 42,
-                 n_jobs: Optional[int] = None, use_global_pool: bool = True):
+                 n_jobs: Optional[int] = None, use_global_pool: bool = True,
+                 feature_mode: str = 'incoming'):
         """
         Initialize unified dataset generator
         
@@ -85,6 +86,7 @@ class UnifiedDatasetGenerator:
         self.num_rounds = num_rounds
         self.rng = np.random.default_rng(seed)
         self.use_global_pool = use_global_pool
+        self.feature_mode = feature_mode
         
         # Set up parallel configuration
         if n_jobs is None:
@@ -180,6 +182,9 @@ class UnifiedDatasetGenerator:
         # If p parameter exists (watts_strogatz), add p information
         if self.p is not None and self.graph_type == 'watts_strogatz':
             dir_name += f"_p{int(self.p * 100):02d}"
+        
+        # Feature mode (always include for clarity)
+        dir_name += f"_{self.feature_mode}"
         
         # Fault information part
         if self.fault_rate is not None:
@@ -361,11 +366,16 @@ class UnifiedDatasetGenerator:
         
         return results
     
-    def convert_to_gnn_format_parallel(self, raw_data: Dict) -> List[Data]:
+    def convert_to_gnn_format_parallel(self, raw_data: Dict, feature_mode: Optional[str] = None) -> List[Data]:
         """
         Parallel conversion to GNN format - improved resource management
+        
+        Args:
+            raw_data: Raw dataset dictionary
+            feature_mode: Override feature mode (if None, use self.feature_mode)
         """
-        logger.info("Parallel conversion of sparse data to GNN format...")
+        fm = feature_mode or self.feature_mode
+        logger.info(f"Parallel conversion of sparse data to GNN format (feature_mode={fm})...")
         start_time = time.time()
         
         global_max_degree = raw_data['metadata'].get('global_max_degree', 0)
@@ -380,7 +390,8 @@ class UnifiedDatasetGenerator:
                 raw_data['graph_configs'][i],
                 self.graph_type, self.n, self.k, self.p, self.fault_rate,
                 self.fault_count, self.intermittent_prob,
-                global_max_degree
+                global_max_degree,
+                fm
             ))
         
         # Parallel conversion
@@ -596,7 +607,7 @@ def convert_single_graph_to_gnn(args):
     """
     (idx, sparse_syndromes, fault_states, config,
      graph_type, n, k, p, fault_rate, fault_count, intermittent_prob,
-     global_max_degree) = args
+     global_max_degree, feature_mode) = args
     
     try:
         # Reconstruct graph object
@@ -607,7 +618,8 @@ def convert_single_graph_to_gnn(args):
         
         # Generate node features, using global_max_degree to ensure consistent dimensions
         x = graph.get_node_features_from_sparse_syndromes(
-            sparse_syndromes, global_max_neighbors=global_max_degree or None)
+            sparse_syndromes, global_max_neighbors=global_max_degree or None,
+            feature_mode=feature_mode)
         
         # Generate edge indices
         edge_index = graph.get_edge_index()
@@ -775,7 +787,8 @@ def generate_dataset_from_config(graph_type: str = 'bc', n: int = 8, k: Optional
                                 fault_rate: Optional[float] = None, fault_count: Optional[int] = None,
                                 num_graphs: int = 10, num_rounds: int = 10,
                                 intermittent_prob: float = 0.5, seed: int = 42,
-                                n_jobs: Optional[int] = None, save_dir: Optional[str] = None) -> Dict:
+                                n_jobs: Optional[int] = None, save_dir: Optional[str] = None,
+                                feature_mode: str = 'incoming') -> Dict:
     """
     Convenient function to generate dataset based on configuration
     
@@ -811,7 +824,8 @@ def generate_dataset_from_config(graph_type: str = 'bc', n: int = 8, k: Optional
         intermittent_prob=intermittent_prob,
         num_rounds=num_rounds,
         seed=seed,
-        n_jobs=n_jobs
+        n_jobs=n_jobs,
+        feature_mode=feature_mode
     )
     
     # Parallel generation of dataset
