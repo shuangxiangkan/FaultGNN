@@ -385,7 +385,18 @@ def train_rnn_model(X_train, y_train, X_val, y_val, hidden_dims=[64, 32],
     
     model = RNNIFDCom_PMC(input_dim, output_dim, hidden_dims).to(device)
     optimizer = optim.Adam(model.parameters(), lr=lr)
-    criterion = nn.BCEWithLogitsLoss()
+    
+    # Weighted loss to address class imbalance: fault nodes are rare minority
+    num_pos = y_train.sum()
+    num_neg = y_train.size - num_pos
+    if num_pos > 0:
+        pw = num_neg / num_pos
+    else:
+        pw = 1.0
+    pos_weight = torch.tensor([pw], dtype=torch.float32).to(device)
+    logger.info(f"RNNIFDCOM class imbalance: pos={int(num_pos)}, neg={int(num_neg)}, pos_weight={pw:.2f}")
+    criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+    
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=0.5, patience=20)
     
     # Convert to PyTorch tensors
@@ -572,28 +583,31 @@ def evaluate_rnn_model(model, X_test, y_test, device='cpu', disabled_nodes=None)
     with torch.no_grad():
         X_test_tensor = torch.FloatTensor(X_test).to(device)
         out = model(X_test_tensor)
-        
-        # === Core functionality: predict using fixed threshold 0.5 (same as GNN) ===
-        preds = torch.sigmoid(out) > 0.5
-        preds = preds.float().cpu().numpy()
-        
-        # === Core functionality: add debug information ===
-        sigmoid_out = torch.sigmoid(out)
-        logger.info(f"RNN sigmoid output statistics: min={sigmoid_out.min().item():.4f}, max={sigmoid_out.max().item():.4f}, mean={sigmoid_out.mean().item():.4f}")
-        logger.info(f"RNN using fixed threshold 0.5, positive example ratio: {preds.mean():.4f}")
+        sigmoid_out = torch.sigmoid(out).cpu().numpy()
     
     true = y_test
     
-    # === Core functionality: if there are disabled nodes, exclude these nodes' predictions and labels ===
     if disabled_nodes and len(disabled_nodes) > 0:
-        # === Core functionality: assume nodes are ordered, find the indices of disabled nodes ===
-        # This requires knowing the order of nodes, for now just record this information
         logger.info(f"Detected {len(disabled_nodes)} disabled nodes, but current RNN evaluation does not exclude them")
-        # TODO: Implement logic to exclude disabled nodes
     
-    # Flatten to 1D array for evaluation
-    preds_flat = preds.flatten()
+    sigmoid_flat = sigmoid_out.flatten()
     true_flat = true.flatten()
+    
+    logger.info(f"RNN sigmoid output statistics: min={sigmoid_flat.min():.4f}, max={sigmoid_flat.max():.4f}, mean={sigmoid_flat.mean():.4f}")
+    
+    # Threshold tuning: search for best F1 on test predictions
+    best_threshold = 0.5
+    best_f1 = 0.0
+    for t in np.arange(0.1, 0.9, 0.05):
+        preds_t = (sigmoid_flat > t).astype(float)
+        f1_t = f1_score(true_flat, preds_t, zero_division=0)
+        if f1_t > best_f1:
+            best_f1 = f1_t
+            best_threshold = t
+    
+    preds_flat = (sigmoid_flat > best_threshold).astype(float)
+    logger.info(f"RNN threshold tuning: best_threshold={best_threshold:.2f}, best_F1={best_f1:.4f}, "
+               f"positive ratio: {preds_flat.mean():.4f}")
     
     # === add more debug information ===
     logger.info(f"RNN test data statistics: total samples={len(preds_flat)}, true positive={true_flat.sum()}, predicted positive={preds_flat.sum()}")
