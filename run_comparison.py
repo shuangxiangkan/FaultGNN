@@ -1243,6 +1243,135 @@ def run_feature_ablation(args, base_output_dir="results"):
     return ablation_results
 
 
+def run_data_scalability(args, base_output_dir="results"):
+    """
+    Data scalability study: show how model performance varies with training set size.
+    Demonstrates the fundamental data efficiency difference between GNN (per-node)
+    and RNN (per-graph) approaches across multiple graph types.
+    """
+    graph_configs = []
+    
+    if args.graph_type == 'all':
+        graph_configs = [
+            {'graph_type': 'bc', 'n': 8, 'k': None, 'p': None, 'label': 'BC(n=8, 256 nodes)'},
+            {'graph_type': 'watts_strogatz', 'n': 64, 'k': 6, 'p': 0.1, 'label': 'WS(k=6, 64 nodes)'},
+        ]
+    else:
+        graph_configs = [{
+            'graph_type': args.graph_type,
+            'n': args.n,
+            'k': args.k,
+            'p': args.p,
+            'label': f'{args.graph_type}(n={args.n})'
+        }]
+    
+    num_graphs_list = [50, 200, 500, 1000, 5000]
+    
+    scalability_dir = os.path.join(base_output_dir, "scalability_study")
+    os.makedirs(scalability_dir, exist_ok=True)
+    
+    logger.info("=" * 100)
+    logger.info("Data Scalability Study: GNN vs RNNIFDCOM vs FIFPDPMC with varying training set size")
+    logger.info("=" * 100)
+    
+    all_results = {}
+    
+    for gc in graph_configs:
+        graph_label = gc['label']
+        all_results[graph_label] = {}
+        
+        logger.info(f"\n{'='*80}")
+        logger.info(f"Graph: {graph_label}")
+        logger.info(f"{'='*80}")
+        
+        for ng in num_graphs_list:
+            logger.info(f"\n--- num_graphs = {ng} ---")
+            
+            config = {
+                'graph_type': gc['graph_type'],
+                'n': gc['n'],
+                'k': gc['k'],
+                'p': gc['p'],
+                'fault_rate': args.fault_rate,
+                'fault_count': args.fault_count,
+                'feature_mode': args.feature_mode
+            }
+            
+            # Override num_graphs for this run
+            import copy
+            args_copy = copy.deepcopy(args)
+            args_copy.num_graphs = ng
+            args_copy.graph_type = gc['graph_type']
+            args_copy.n = gc['n']
+            args_copy.k = gc['k']
+            args_copy.p = gc['p']
+            
+            result = run_single_experiment(config, args_copy, scalability_dir)
+            all_results[graph_label][ng] = result
+    
+    # Print summary table
+    logger.info("\n" + "=" * 120)
+    logger.info("Data Scalability Results Summary")
+    logger.info("=" * 120)
+    
+    for graph_label, results_by_ng in all_results.items():
+        logger.info(f"\n--- {graph_label} ---")
+        header = (f"{'#Graphs':>8} {'GNN-train':>10} {'RNN-train':>10} "
+                  f"| {'GNN-F1':>8} {'RNN-F1':>8} {'FPD-F1':>8} "
+                  f"| {'GNN-Acc':>8} {'RNN-Acc':>8} {'FPD-Acc':>8}")
+        logger.info(header)
+        logger.info("-" * 100)
+        
+        for ng in num_graphs_list:
+            r = results_by_ng.get(ng, {})
+            g = r.get('gnn_results') or {}
+            rn = r.get('rnn_results') or {}
+            fp = r.get('fifpdpmc_results') or {}
+            
+            num_rounds = args.num_rounds
+            gnn_samples = int(ng * 0.7)  # 70% train
+            rnn_samples = int(ng * 0.7) * num_rounds
+            
+            logger.info(
+                f"{ng:>8} {gnn_samples:>10} {rnn_samples:>10} "
+                f"| {g.get('f1_score', 0):>8.4f} {rn.get('f1_score', 0):>8.4f} {fp.get('f1_score', 0):>8.4f} "
+                f"| {g.get('accuracy', 0):>8.4f} {rn.get('accuracy', 0):>8.4f} {fp.get('accuracy', 0):>8.4f}")
+    
+    logger.info("\n" + "=" * 120)
+    logger.info("Note: GNN-train = #graphs (each graph has n node samples)")
+    logger.info("      RNN-train = #graphs × num_rounds (each round is one flattened syndrome vector)")
+    logger.info("=" * 120)
+    
+    # Save summary
+    summary_file = os.path.join(scalability_dir, "scalability_summary.txt")
+    with open(summary_file, 'w') as f:
+        f.write("Data Scalability Study Results\n\n")
+        for graph_label, results_by_ng in all_results.items():
+            f.write(f"--- {graph_label} ---\n")
+            f.write(f"{'#Graphs':>8} {'GNN-train':>10} {'RNN-train':>10} "
+                   f"| {'GNN-F1':>8} {'RNN-F1':>8} {'FPD-F1':>8} "
+                   f"| {'GNN-Acc':>8} {'RNN-Acc':>8} {'FPD-Acc':>8}\n")
+            f.write("-" * 100 + "\n")
+            for ng in num_graphs_list:
+                r = results_by_ng.get(ng, {})
+                g = r.get('gnn_results') or {}
+                rn = r.get('rnn_results') or {}
+                fp = r.get('fifpdpmc_results') or {}
+                
+                num_rounds = args.num_rounds
+                gnn_samples = int(ng * 0.7)
+                rnn_samples = int(ng * 0.7) * num_rounds
+                
+                f.write(
+                    f"{ng:>8} {gnn_samples:>10} {rnn_samples:>10} "
+                    f"| {g.get('f1_score', 0):>8.4f} {rn.get('f1_score', 0):>8.4f} {fp.get('f1_score', 0):>8.4f} "
+                    f"| {g.get('accuracy', 0):>8.4f} {rn.get('accuracy', 0):>8.4f} {fp.get('accuracy', 0):>8.4f}\n")
+            f.write("\n")
+    
+    logger.info(f"Scalability summary saved to: {summary_file}")
+    return all_results
+
+
 def main():
     parser = argparse.ArgumentParser(description='Unified comparison experiment: GNN vs RNNIFDCOM')
     
@@ -1285,6 +1414,9 @@ def main():
                              'outgoing (node tests neighbors), concat (both)')
     parser.add_argument('--ablation_feature', action='store_true',
                         help='Run ablation study comparing incoming/outgoing/concat feature modes')
+    parser.add_argument('--scalability', action='store_true',
+                        help='Run data scalability study (num_graphs: 50,200,500,1000,5000). '
+                             'Use --graph_type all to run on BC + WS simultaneously')
     
     # dataset and output
     parser.add_argument('--dataset_base_dir', type=str, default='datasets', help='Dataset base directory')
@@ -1323,7 +1455,10 @@ def main():
     logger.info("Unified comparison experiment: GNN vs RNNIFDCOM")
     logger.info("=" * 80)
     
-    if args.ablation_feature:
+    if args.scalability:
+        # Data scalability study
+        run_data_scalability(args, args.output_dir)
+    elif args.ablation_feature:
         # Ablation study: compare incoming / outgoing / concat feature modes
         run_feature_ablation(args, args.output_dir)
     else:

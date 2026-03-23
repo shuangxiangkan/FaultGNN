@@ -46,8 +46,11 @@ python run_comparison.py --help
 #### Usage Examples
 
 ```bash
-# BC network (hypercube), 10 dimensional, 8 fault nodes
+# BC network (hypercube), 10 dimensional (1024 nodes), 8 fault nodes
 python run_comparison.py --graph_type bc --n 10 --fault_count 8
+
+# Augmented k-ary n-cube AQ_{n,k}, n=3 dimension, k=3 base (27 nodes), 2 fault nodes
+python run_comparison.py --graph_type augmented_k_ary_n_cube --n 3 --k 3 --fault_count 2
 
 # Watts-Strogatz small-world graph: k_ws=6 => n_ws=64 nodes, p_ws=0.1
 python run_comparison.py --graph_type watts_strogatz --k 6 --fault_count 2
