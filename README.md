@@ -61,6 +61,9 @@ python run_comparison.py --graph_type bc --n 8 --fault_count 2 --feature_mode ou
 # Run feature ablation study (compares incoming / outgoing / concat)
 python run_comparison.py --graph_type bc --n 8 --fault_count 2 --ablation_feature
 
+# 10% fault rate
+python run_comparison.py --graph_type bc --n 8 --fault_rate 0.10
+
 # Custom training parameters
 python run_comparison.py --graph_type bc --n 8 --fault_count 2 \
     --num_graphs 1000 --epochs 100 --lr 0.002 --seed 42
