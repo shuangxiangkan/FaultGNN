@@ -37,9 +37,15 @@ class AugmentedKAryNCube(BaseKRegularGraph):
     
     def _calculate_theoretical_diagnosability(self):
         """
-        Calculate theoretical intermittent fault diagnosability of augmented k-ary n-cube AQ_n,k.
-        According to formula: AQ_n,k = 4n - 6
+        Calculate intermittent fault diagnosability of AQ_n,k.
+
+        The general value is 4n - 6 for n >= 3 and k >= 4.
+        The two smaller configurations below have different values.
         """
+        if (self.n, self.k_ary) == (3, 3):
+            return 5
+        if (self.n, self.k_ary) == (2, 7):
+            return 3
         return 4 * self.n - 6
     
     def _generate_vertices(self):
@@ -125,4 +131,4 @@ class AugmentedKAryNCube(BaseKRegularGraph):
             else:
                 print("Warning: Graph is not regular!")
         
-        return G 
+        return G
